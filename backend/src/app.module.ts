@@ -6,6 +6,7 @@ import { HintsModule } from './hints/hints.module';
 import { TeamsModule } from './teams/teams.module';
 import { MondayApiModule } from './monday/monday-api.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
+import { MockMondayModule } from './mock-monday/mock-monday.module';
 
 @Module({
     imports: [
@@ -16,6 +17,7 @@ import { WebhooksModule } from './webhooks/webhooks.module';
         TasksModule,
         HintsModule,
         WebhooksModule,
+        MockMondayModule,
     ],
 })
 export class AppModule {}
