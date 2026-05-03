@@ -1,70 +1,197 @@
-# Moshal Hackathon 2026 - Developer Guide
+# TeamSprintUp — Developer Guide
 
-Welcome to the Moshal Hackathon 26 project! 🚀 
-This repository contains the code for both the **Frontend** and the **Backend**, alongside the Database configuration.
-
-## 👨‍💻 Team Structure
-The team consists of 4 developers:
-- **2 Frontend Developers** (Working in the `frontend/` directory)
-- **2 Backend Developers** (Working in the `backend/` directory)
+A hi-tech simulation platform for students. Teams work together in real roles (PM, QA, Dev, Hardware), complete tasks through an approval pipeline, and get AI-powered hints — all orchestrated by a teacher via Monday.com.
 
 ---
 
-## 🏗️ Project Architecture
+## Project Structure
 
-### 1. Frontend (Nuxt 3 + Vue 3 + TailwindCSS)
-Located in the `frontend/` folder.
-It's a modern, SSR-ready web application.
-
-- **`frontend/nuxt.config.ts`**: The main configuration file. Contains Supabase environment variables.
-- **`frontend/types/`**: Shared TypeScript interfaces (e.g., `types.ts`). **Backend developers should keep these in sync with the backend contracts.**
-- **`frontend/services/`**: API calls and mock data (e.g., `mockService.ts`).
-- **`frontend/tailwind.config.ts`**: Styling configurations.
-
-#### 🏃‍♂️ How to run Frontend locally
-1. Open terminal and navigate to the frontend folder: `cd frontend`
-2. Install dependencies (if you haven't): `npm install`
-3. Run the development server: `npm run dev`
-4. Open your browser at `http://localhost:3000`
-
-### 2. Backend (NestJS + TypeScript)
-Located in the `backend/` folder.
-It's a structured API server built with NestJS.
-
-- **`backend/src/main.ts`**: The entry point of the server.
-- **`backend/src/app.module.ts`**: The root module that imports all other modules.
-- **`backend/src/ai/`**: Contains the `AIService` which is responsible for analyzing text using AI models (OpenAI/Anthropic/Gemini). It calculates jargon and soft skill scores.
-- **`backend/src/webhooks/`**: Contains the `MondayController` (`monday.controller.ts`) which listens to webhooks coming from Monday.com and processes events.
-
-#### 🏃‍♂️ How to run Backend locally
-1. Open terminal and navigate to the backend folder: `cd backend`
-2. Install dependencies: `npm install`
-3. Run the development server: `npm run start:dev`
-4. The server runs usually on `http://localhost:3000` (Make sure to change the port if frontend runs on 3000, usually NestJS runs on 3000 by default. Set `PORT=3001` for backend in `.env` or in `main.ts`).
-
-### 3. Database (Supabase)
-Located in the `supabase/` folder.
-- **`supabase/schema.sql`**: Contains the database tables and schemas. You can copy-paste this into your Supabase SQL Editor to set up the DB structure.
+```
+├── frontend/        # Nuxt 3 + Vue 3 + TailwindCSS
+├── backend/         # NestJS + TypeScript
+└── supabase/        # PostgreSQL schema + RLS policies
+```
 
 ---
 
-## 🔗 How Backend and Frontend Connect
-1. **Types**: Make sure the interfaces in `backend/src/ai/ai.service.ts` (like `AIAnalysisRequest`) match exactly with `frontend/types/types.ts`.
-2. **API Calls**: Frontend developers will write functions in `frontend/services/` to make HTTP calls (`fetch` or `axios`) to the backend endpoints (e.g., `http://localhost:3001/ai/...`).
+## Architecture Overview
 
-## 🔑 Environment Variables
-You will need `.env` files locally. **Do not commit them to Git.**
-- **Frontend `.env`**: Needs `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_KEY`.
-- **Backend `.env`**: Needs `OPENAI_API_KEY` (or equivalent), `MONDAY_WEBHOOK_SECRET`.
+```
+Monday.com (Teacher)
+    │  webhooks
+    ▼
+NestJS Backend ──────────── Supabase (PostgreSQL)
+    │  REST API                    │
+    │                              │ RLS
+    ▼                              ▼
+Nuxt 3 Frontend ◄──────── Supabase Auth (anon key)
+```
 
-## 🐙 Git Workflow
-- Always pull the latest code before starting work: `git pull origin master`
-- If you make changes, commit them logically:
-  ```bash
-  git add .
-  git commit -m "feat: added new AI feature"
-  git push origin master
-  ```
-- Communicate with the team if you are changing shared types or database schemas!
+---
 
-Happy Coding! 🎉
+## Backend (`backend/`)
+
+### Module Map
+
+| Module | Path | Responsibility |
+|---|---|---|
+| `SupabaseModule` | `src/supabase/` | Global DB client (service-role key, bypasses RLS) |
+| `TasksModule` | `src/tasks/` | Full approval flow: Dev → QA → PM → Teacher |
+| `HintsModule` | `src/hints/` | AI hints, 3 free then point deduction |
+| `TeamsModule` | `src/teams/` | Team completion, leaderboards, analytics |
+| `MondayApiModule` | `src/monday/` | GraphQL mutations to Monday.com |
+| `WebhooksModule` | `src/webhooks/` | Incoming Monday.com webhook events |
+| `AIModule` | `src/ai/` | Claude-powered text analysis + hint generation |
+
+### Task Status Flow
+
+```
+pending → qa_review → pm_review → teacher_review → approved
+            ↓ reject      ↓ reject
+          pending      qa_review
+```
+
+### API Endpoints
+
+| Method | Path | Who calls it |
+|---|---|---|
+| `GET` | `/api/tasks/team/:teamId` | Frontend |
+| `POST` | `/api/tasks/submit` | Dev / Hardware |
+| `POST` | `/api/tasks/qa-review` | QA |
+| `POST` | `/api/tasks/pm-review` | PM |
+| `POST` | `/api/hints` | Any role |
+| `GET` | `/api/hints/count?userId=&teamId=` | Frontend |
+| `GET` | `/api/teams/leaderboard/group` | Frontend |
+| `GET` | `/api/teams/leaderboard/individual` | Frontend |
+| `GET` | `/api/teams/analytics` | Teacher dashboard |
+| `POST` | `/api/webhooks/monday` | Monday.com |
+
+### Running the Backend
+
+```bash
+cd backend
+npm install
+cp .env.example .env   # fill in the values
+npm run start:dev      # runs on http://localhost:3001
+```
+
+### Backend Environment Variables (`.env`)
+
+```env
+PORT=3001
+SUPABASE_URL=https://xxxx.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=eyJ...   # service role — never expose to browser
+ANTHROPIC_API_KEY=sk-ant-...
+MONDAY_API_TOKEN=eyJ...
+MONDAY_WEBHOOK_SECRET=some-secret
+```
+
+---
+
+## Frontend (`frontend/`)
+
+### Key Files
+
+| File | Purpose |
+|---|---|
+| `types/types.ts` | Shared TypeScript interfaces (keep in sync with backend) |
+| `components/TaskBoard.vue` | Role-aware task board with modals (Submit / QA / PM) |
+| `components/EnglishTerm.vue` | English tech term with Hebrew tooltip on hover |
+| `composables/useTasks.ts` | Typed API wrappers for all task + hint calls |
+| `services/mockService.ts` | Mock data for development without a live backend |
+
+### Running the Frontend
+
+```bash
+cd frontend
+npm install
+cp .env.example .env   # fill in the values
+npm run dev            # runs on http://localhost:3000
+```
+
+### Frontend Environment Variables (`.env`)
+
+```env
+SUPABASE_URL=https://xxxx.supabase.co
+SUPABASE_ANON_KEY=eyJ...            # public — safe in browser
+SUPABASE_SERVICE_KEY=eyJ...         # server-side only (Nuxt server routes)
+API_BASE_URL=http://localhost:3001/api
+```
+
+---
+
+## Database (`supabase/`)
+
+### Tables
+
+| Table | Description |
+|---|---|
+| `challenges` | Large projects (e.g. Smart City) |
+| `teams` | Score, sprint status, `is_completed` flag |
+| `users` | Role, team, active time tracking |
+| `sprints` | Sub-phases of a challenge |
+| `tasks` | Full task lifecycle with status + checklist |
+| `hint_logs` | Every hint request logged |
+| `team_hint_counters` | Per (user, team) hint count — resets on team change |
+
+### Setup
+
+1. Go to your **Supabase project → SQL Editor**
+2. Paste and run the contents of `supabase/schema.sql`
+3. Done — tables, indexes, views, RLS policies and score functions are all created
+
+### Useful Views (auto-created by schema)
+
+| View | Used for |
+|---|---|
+| `group_leaderboard` | Team rankings by score |
+| `individual_leaderboard` | Top 3 students (filtered in backend) |
+| `teacher_analytics` | Active time vs tasks completed per student |
+
+---
+
+## Hint System
+
+- Each student gets **3 free hints per team**
+- Hint #4+ deducts **10 points** from the team score
+- Counter resets automatically when a student switches teams
+- All hints are generated by Claude (`claude-sonnet-4-6`) and logged to `hint_logs`
+
+---
+
+## Monday.com Integration
+
+| Event | What happens |
+|---|---|
+| Teacher creates item on board | Challenge is activated for all teams |
+| Teacher sets column to "Approved" | Task moves from `teacher_review` → `approved`, team completion is checked |
+| PM approves a task | Monday item updated to "Pending Teacher Review" + mock hardware LED event logged |
+
+---
+
+## Environment Variables — Full Reference
+
+| Variable | Where | Description |
+|---|---|---|
+| `SUPABASE_URL` | backend + frontend | Supabase project URL |
+| `SUPABASE_SERVICE_ROLE_KEY` | backend only | Bypasses RLS — keep secret |
+| `SUPABASE_ANON_KEY` | frontend | Safe public key |
+| `ANTHROPIC_API_KEY` | backend | For AI hints + text analysis |
+| `MONDAY_API_TOKEN` | backend | Monday.com GraphQL API token |
+| `MONDAY_WEBHOOK_SECRET` | backend | Validates incoming webhooks |
+| `API_BASE_URL` | frontend | Points to backend (default: `http://localhost:3001/api`) |
+| `PORT` | backend | Backend port (default: `3001`) |
+
+---
+
+## Git Workflow
+
+```bash
+git pull origin master          # always pull before starting
+# ... make changes ...
+git add .
+git commit -m "feat: your change"
+git push origin master
+```
+
+If changing shared types or the DB schema — coordinate with the team first.
