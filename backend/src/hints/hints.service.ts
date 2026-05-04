@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 import { AIService } from '../ai/ai.service';
+import { RagService } from '../rag/rag.service';
 import { RequestHintDto } from './dto/request-hint.dto';
 
 const FREE_HINTS = 3;
@@ -25,18 +26,21 @@ export class HintsService {
     constructor(
         private readonly supabase: SupabaseService,
         private readonly aiService: AIService,
+        private readonly rag: RagService,
     ) {}
 
     async requestHint(dto: RequestHintDto): Promise<HintResponse> {
-        const currentCount = await this.getHintCount(dto.userId, dto.teamId);
-        const hintNumber = currentCount + 1;
-
-        // Generate hint text via AI
-        const hint = await this.aiService.generateHint(
-            dto.taskDescription ?? 'No description provided',
-            dto.context ?? '',
-            hintNumber,
+        // Build rich RAG context (syllabus + task + team progress + hint count)
+        const context = await this.rag.buildContext(
+            dto.taskId ?? '',
+            dto.userId,
+            dto.teamId,
         );
+
+        const hintNumber = context.hintNumber;
+
+        // Generate hint text via AI with full context
+        const hint = await this.aiService.generateHint(context);
 
         const pointsDeducted = hintNumber > FREE_HINTS ? POINTS_PER_EXTRA_HINT : 0;
 
