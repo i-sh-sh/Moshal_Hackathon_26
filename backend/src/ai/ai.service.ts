@@ -18,12 +18,17 @@ export interface AIAnalysisResult {
 @Injectable()
 export class AIService {
     private readonly logger = new Logger(AIService.name);
-    private readonly client = new AzureOpenAI({
-        endpoint:   process.env.AZURE_OPENAI_ENDPOINT ?? '',
-        apiKey:     process.env.AZURE_OPENAI_API_KEY  ?? '',
-        apiVersion: process.env.AZURE_OPENAI_API_VERSION ?? '2024-02-01',
-    });
     private readonly deployment = process.env.AZURE_OPENAI_DEPLOYMENT ?? '';
+
+    private get client(): AzureOpenAI {
+        const key = process.env.AZURE_OPENAI_API_KEY ?? '';
+        if (!key) throw new Error('AZURE_OPENAI_API_KEY is not set');
+        return new AzureOpenAI({
+            endpoint:   process.env.AZURE_OPENAI_ENDPOINT ?? '',
+            apiKey:     key,
+            apiVersion: process.env.AZURE_OPENAI_API_VERSION ?? '2024-02-01',
+        });
+    }
 
     async analyze(request: AIAnalysisRequest): Promise<AIAnalysisResult> {
         this.logger.debug(`Analyzing text (${request.text.length} chars)`);
