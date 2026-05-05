@@ -65,6 +65,15 @@ const activeModal = ref<'submit' | 'qa' | 'pm' | 'image' | null>(null);
 
 const submitUrl = ref('');
 const submitImageUrl = ref('');
+
+function isValidUrl(val: string): boolean {
+    if (!val) return false;
+    try { return ['http:', 'https:'].includes(new URL(val).protocol); } catch { return false; }
+}
+const submitUrlError = computed(() => submitUrl.value && !isValidUrl(submitUrl.value) ? 'Please enter a valid https:// URL' : '');
+const submitImageUrlError = computed(() => submitImageUrl.value && !isValidUrl(submitImageUrl.value) ? 'Please enter a valid https:// URL' : '');
+const canSubmitForm = computed(() => isValidUrl(submitUrl.value) && !submitImageUrlError.value);
+
 const qaChecklist = reactive<QaChecklist>({ isCompleted: false, hasErrors: false, improvements: [] });
 const qaImprovementInput = ref('');
 const qaNotes = ref('');
@@ -400,18 +409,20 @@ onUnmounted(() => clearInterval(tickTimer));
                             </h2>
                             <label class="field">
                                 <span>Submission URL</span>
-                                <input v-model="submitUrl" type="url" placeholder="https://..." class="input" />
+                                <input v-model="submitUrl" type="url" placeholder="https://..." :class="['input', submitUrlError ? 'border-red-400 focus:ring-red-300' : '']" />
+                                <span v-if="submitUrlError" class="text-xs text-red-500 mt-1">{{ submitUrlError }}</span>
                             </label>
                             <label class="field">
                                 <span>Image URL <span class="text-gray-400">(optional)</span></span>
-                                <input v-model="submitImageUrl" type="url" placeholder="https://..." class="input" />
+                                <input v-model="submitImageUrl" type="url" placeholder="https://..." :class="['input', submitImageUrlError ? 'border-red-400 focus:ring-red-300' : '']" />
+                                <span v-if="submitImageUrlError" class="text-xs text-red-500 mt-1">{{ submitImageUrlError }}</span>
                             </label>
-                            <div v-if="submitImageUrl" class="rounded-xl overflow-hidden border border-gray-200">
+                            <div v-if="submitImageUrl && !submitImageUrlError" class="rounded-xl overflow-hidden border border-gray-200">
                                 <img :src="submitImageUrl" alt="Preview" class="w-full h-32 object-cover" />
                             </div>
                             <div class="flex gap-2 justify-end">
                                 <button class="btn btn-ghost" :disabled="actionLoading" @click="closeModal">Cancel</button>
-                                <button class="btn btn-primary" :disabled="actionLoading || !submitUrl" @click="handleSubmit">
+                                <button class="btn btn-primary" :disabled="actionLoading || !canSubmitForm" @click="handleSubmit">
                                     <span v-if="actionLoading" class="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
                                     <span v-else><EnglishTerm term="Submit" /></span>
                                 </button>

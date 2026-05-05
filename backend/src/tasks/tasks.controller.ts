@@ -6,10 +6,16 @@ import {
     Post,
     HttpCode,
 } from '@nestjs/common';
+import { IsUUID } from 'class-validator';
 import { TasksService } from './tasks.service';
 import { SubmitTaskDto } from './dto/submit-task.dto';
 import { QaReviewDto } from './dto/qa-review.dto';
 import { PmReviewDto } from './dto/pm-review.dto';
+
+class TeacherApproveDto {
+    @IsUUID()
+    taskId!: string;
+}
 
 @Controller('tasks')
 export class TasksController {
@@ -36,5 +42,11 @@ export class TasksController {
     @HttpCode(200)
     pmReview(@Body() dto: PmReviewDto) {
         return this.tasks.pmReview(dto);
+    }
+
+    @Post('teacher-approve')
+    @HttpCode(200)
+    teacherApprove(@Body() dto: TeacherApproveDto) {
+        return this.tasks.teacherApprove(dto.taskId);
     }
 }
