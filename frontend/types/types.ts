@@ -130,3 +130,34 @@ export interface AIAnalysisResult {
     suggestions: string[];
     rawResponse?: unknown;
 }
+
+// ------------------------------------------------------------
+
+export interface BaseActivity {
+    id: string;
+    userId: string;
+    actionType: string;
+    createdAt: string;
+}
+
+export interface AIActivity extends BaseActivity {
+    actionType: 'ai.jargon_scored' | string;
+    payload: {
+        jargonScore: number;
+        softSkillScore: number;
+        detectedTerms: string[];
+        suggestions: string[];
+    };
+}
+
+export interface MondayActivity extends BaseActivity {
+    actionType: 'monday.item_created' | string;
+    payload: {
+        eventType: string;
+        boardId: number;
+        itemId: number;
+        itemName: string;
+    };
+}
+
+export type Activity = AIActivity | MondayActivity;
