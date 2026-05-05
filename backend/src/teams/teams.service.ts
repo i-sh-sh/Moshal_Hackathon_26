@@ -69,4 +69,32 @@ export class TeamsService {
         const approved = tasks.filter((t) => t.status === 'approved').length;
         return { total, approved };
     }
+
+    async getTeamById(id: string): Promise<unknown> {
+        const { data, error } = await this.supabase.db
+            .from('teams')
+            .select(`
+                id, name, accumulated_score, sprint_status, is_completed,
+                current_challenge_id, current_sprint_id,
+                sprints:current_sprint_id (id, title, description, order_index)
+            `)
+            .eq('id', id)
+            .maybeSingle();
+
+        if (error) throw new InternalServerErrorException(error.message);
+        return data ?? null;
+    }
+
+    async getSprintProgress(teamId: string, sprintId: string): Promise<unknown> {
+        const { data: tasks, error } = await this.supabase.db
+            .from('tasks')
+            .select('id, status')
+            .eq('team_id', teamId)
+            .eq('sprint_id', sprintId);
+
+        if (error) throw new InternalServerErrorException(error.message);
+        const total = tasks?.length ?? 0;
+        const approved = tasks?.filter((t) => t.status === 'approved').length ?? 0;
+        return { total, approved };
+    }
 }

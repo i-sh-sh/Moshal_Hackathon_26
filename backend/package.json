@@ -11,7 +11,8 @@
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
-    "start:prod": "node dist/main"
+    "start:prod": "node dist/main",
+    "seed": "ts-node --project tsconfig.json src/seed.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.0",
@@ -29,6 +30,8 @@
     "@nestjs/cli": "^10.0.0",
     "@types/express": "^4.17.17",
     "@types/node": "^20.3.1",
+    "ts-node": "^10.9.2",
+    "tsconfig-paths": "^4.2.0",
     "typescript": "^5.1.3"
   }
 }

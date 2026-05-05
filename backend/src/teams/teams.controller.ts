@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Param, Query } from '@nestjs/common';
 import { TeamsService } from './teams.service';
 
 @Controller('teams')
@@ -18,5 +18,18 @@ export class TeamsController {
     @Get('analytics')
     getAnalytics() {
         return this.teams.getTeacherAnalytics();
+    }
+
+    @Get(':id')
+    getTeam(@Param('id') id: string) {
+        return this.teams.getTeamById(id);
+    }
+
+    @Get(':id/sprint-progress')
+    getSprintProgress(
+        @Param('id') teamId: string,
+        @Query('sprintId') sprintId: string,
+    ) {
+        return this.teams.getSprintProgress(teamId, sprintId);
     }
 }
