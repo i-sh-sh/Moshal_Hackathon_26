@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import Anthropic from '@anthropic-ai/sdk';
+import { AzureOpenAI } from 'openai';
 import type { HintContext } from '../rag/rag.service';
 
 export interface AIAnalysisRequest {
@@ -18,10 +18,12 @@ export interface AIAnalysisResult {
 @Injectable()
 export class AIService {
     private readonly logger = new Logger(AIService.name);
-    private readonly client = new Anthropic({
-        apiKey: process.env.ANTHROPIC_API_KEY ?? '',
+    private readonly client = new AzureOpenAI({
+        endpoint:   process.env.AZURE_OPENAI_ENDPOINT ?? '',
+        apiKey:     process.env.AZURE_OPENAI_API_KEY  ?? '',
+        apiVersion: process.env.AZURE_OPENAI_API_VERSION ?? '2024-02-01',
     });
-    private readonly model = 'claude-sonnet-4-6';
+    private readonly deployment = process.env.AZURE_OPENAI_DEPLOYMENT ?? '';
 
     async analyze(request: AIAnalysisRequest): Promise<AIAnalysisResult> {
         this.logger.debug(`Analyzing text (${request.text.length} chars)`);
@@ -39,31 +41,33 @@ softSkillScore: quality of communication clarity and soft skills (higher = bette
 Context: ${JSON.stringify(request.context ?? {})}`;
 
         try {
-            const message = await this.client.messages.create({
-                model: this.model,
+            const response = await this.client.chat.completions.create({
+                model: this.deployment,
                 max_tokens: 512,
-                system: systemPrompt,
-                messages: [{ role: 'user', content: request.text }],
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user',   content: request.text },
+                ],
             });
 
-            const raw = message.content[0].type === 'text' ? message.content[0].text : '{}';
+            const raw = response.choices[0]?.message?.content ?? '{}';
             const parsed = JSON.parse(raw) as Partial<AIAnalysisResult>;
 
             return {
-                jargonScore: parsed.jargonScore ?? 0,
+                jargonScore:   parsed.jargonScore   ?? 0,
                 softSkillScore: parsed.softSkillScore ?? 0,
                 detectedTerms: parsed.detectedTerms ?? [],
-                suggestions: parsed.suggestions ?? [],
-                rawResponse: parsed,
+                suggestions:   parsed.suggestions   ?? [],
+                rawResponse:   parsed,
             };
         } catch (err) {
             this.logger.error('AI analysis failed', (err as Error).message);
             return {
-                jargonScore: 0,
+                jargonScore:   0,
                 softSkillScore: 0,
                 detectedTerms: [],
-                suggestions: ['AI analysis unavailable — check ANTHROPIC_API_KEY'],
-                rawResponse: null,
+                suggestions:   ['AI analysis unavailable — check Azure OpenAI configuration'],
+                rawResponse:   null,
             };
         }
     }
@@ -71,12 +75,10 @@ Context: ${JSON.stringify(request.context ?? {})}`;
     async generateHint(ctx: HintContext): Promise<string> {
         const { syllabus, teamProgress, hintNumber, isLastFreeHint, isOverFreeLimit } = ctx;
 
-        // ── Build the techniques reference block ──────────────────────────────
         const techniquesBlock = syllabus.fusion360Techniques
             .map((t) => `  • ${t.name} — ${t.hebrewDescription} (${t.sprintRelevance})`)
             .join('\n');
 
-        // ── Hint-depth instruction based on number ────────────────────────────
         const depthInstruction =
             hintNumber === 1
                 ? 'Hint #1: כוון לכיוון הכללי — שם הכלי או העקרון הרלוונטי, בלי לפרט.'
@@ -84,7 +86,6 @@ Context: ${JSON.stringify(request.context ?? {})}`;
                 ? 'Hint #2: תן כיוון ספציפי יותר — איזה כלי להשתמש ואיך לגשת אליו.'
                 : 'Hint #3+: תלמיד/ה מתקשה — תן צעד מעשי וישיר עם הנחיה ממוקדת.';
 
-        // ── Point cost notice (shown on last free / over limit) ───────────────
         const costNotice = isLastFreeHint
             ? '\n⚠️ זהו ה-Hint החינמי האחרון. רמז נוסף יעלה 10 נקודות לצוות.'
             : isOverFreeLimit
@@ -134,23 +135,22 @@ ${depthInstruction}
 - התייחס למיומנויות ה-CBL של האתגר כשמתאים
 `.trim();
 
-        const userMessage =
-            `תן Hint #${hintNumber} לתלמיד/ה שעובד/ת על המשימה: "${ctx.taskTitle}"`;
+        const userMessage = `תן Hint #${hintNumber} לתלמיד/ה שעובד/ת על המשימה: "${ctx.taskTitle}"`;
 
         try {
-            const message = await this.client.messages.create({
-                model: this.model,
+            const response = await this.client.chat.completions.create({
+                model: this.deployment,
                 max_tokens: 300,
-                system: systemPrompt,
-                messages: [{ role: 'user', content: userMessage }],
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user',   content: userMessage },
+                ],
             });
 
-            return message.content[0].type === 'text'
-                ? message.content[0].text
-                : 'Hint unavailable right now.';
+            return response.choices[0]?.message?.content ?? 'Hint unavailable right now.';
         } catch (err) {
             this.logger.error('generateHint failed', (err as Error).message);
-            return 'Hint unavailable right now — check ANTHROPIC_API_KEY.';
+            return 'Hint unavailable right now — check Azure OpenAI configuration.';
         }
     }
 }

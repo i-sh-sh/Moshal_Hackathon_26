@@ -141,7 +141,7 @@ Dev מגיש עבודה
 ### דרישות מקדימות
 - Node.js 18+
 - חשבון Supabase (חינמי)
-- מפתח API של Anthropic (Claude)
+- Azure OpenAI resource עם deployment פעיל
 
 ### צעד 1 — הקמת Supabase
 1. צור פרויקט ב-[supabase.com](https://supabase.com)
@@ -240,12 +240,14 @@ findOne(id) → משתמש בודד עם team + role
 
 מחליף את Monday.com האמיתי לצורך הדמו. מתממשק לאותם שירותים פנימיים בדיוק כמו ה-webhook האמיתי.
 
-#### `AIModule` — Claude
+#### `AIModule` — Azure OpenAI
 קובץ: `src/ai/ai.service.ts`
 
 שתי מתודות:
 - `analyze(text)` — מחזיר jargonScore, softSkillScore, detectedTerms
 - `generateHint(ctx)` — hint מותאם לפי מספר, סילבוס, והתקדמות (1=כללי, 2=ספציפי, 3+=מעשי)
+
+המודל נקבע דרך `AZURE_OPENAI_DEPLOYMENT` ב-`.env` — ניתן להחליף deployment בלי לשנות קוד.
 
 ### כל ה-API Endpoints
 
@@ -435,11 +437,14 @@ Claude מותאם לפי מספר הרמז:
 ```env
 PORT=3001
 SUPABASE_URL=https://xxxx.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=eyJ...    # שמור סודי! עוקף את כל ה-RLS
-ANTHROPIC_API_KEY=sk-ant-...        # מ-console.anthropic.com
-MONDAY_API_TOKEN=eyJ...             # רלוונטי רק ל-Monday אמיתי
-MONDAY_WEBHOOK_SECRET=any-string    # מחרוזת אקראית שאתה בוחר
-CORS_ORIGINS=http://localhost:3000  # מופרד בפסיקים לריבוי דומיינים
+SUPABASE_SERVICE_ROLE_KEY=eyJ...           # שמור סודי! עוקף את כל ה-RLS
+AZURE_OPENAI_ENDPOINT=https://YOUR_RESOURCE.openai.azure.com/
+AZURE_OPENAI_API_KEY=xxxxxxxxxxxxxxxx      # מ-Azure Portal → OpenAI → Keys
+AZURE_OPENAI_API_VERSION=2024-02-01
+AZURE_OPENAI_DEPLOYMENT=your-deployment   # שם ה-deployment שיצרת ב-Azure OpenAI Studio
+MONDAY_API_TOKEN=eyJ...                    # רלוונטי רק ל-Monday אמיתי
+MONDAY_WEBHOOK_SECRET=any-string           # מחרוזת אקראית שאתה בוחר
+CORS_ORIGINS=http://localhost:3000         # מופרד בפסיקים לריבוי דומיינים
 ```
 
 ### `frontend/.env`
