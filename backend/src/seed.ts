@@ -1,46 +1,38 @@
-import { NestFactory } from '@nestjs/core';
-import { Logger } from '@nestjs/common';
-import { AppModule } from './app.module';
-import { SupabaseService } from './supabase/supabase.service';
+import postgres from 'postgres';
+import * as dotenv from 'dotenv';
 
-const log = new Logger('Seed');
+dotenv.config();
+
+const log = (msg: string) => console.log(`[Seed] ${msg}`);
+const err = (msg: string) => console.error(`[Seed] ✗ ${msg}`);
 
 // ── Fixed UUIDs — guarantees idempotency across runs ─────────────────────────
-
 const ID = {
     challenge: 'aaaa0001-0000-0000-0000-000000000000',
-
     sprint: {
-        gift:     'bbbb0001-0000-0000-0000-000000000000', // אתגר 01 מתנה
-        games:    'bbbb0002-0000-0000-0000-000000000000', // אתגר 02 משחקים
-        branding: 'bbbb0003-0000-0000-0000-000000000000', // אתגר 03 מיתוג אישי
+        gift:     'bbbb0001-0000-0000-0000-000000000000',
+        games:    'bbbb0002-0000-0000-0000-000000000000',
+        branding: 'bbbb0003-0000-0000-0000-000000000000',
     },
-
     team: {
         alpha: 'cccc0001-0000-0000-0000-000000000000',
         beta:  'cccc0002-0000-0000-0000-000000000000',
     },
-
     user: {
-        // Team Alpha
-        yael:  'dddd0001-0000-0000-0000-000000000000', // PM
-        david: 'dddd0002-0000-0000-0000-000000000000', // QA
-        noa:   'dddd0003-0000-0000-0000-000000000000', // Dev
-        ariel: 'dddd0004-0000-0000-0000-000000000000', // Hardware
-        // Team Beta
-        maya:  'dddd0005-0000-0000-0000-000000000000', // PM
-        omer:  'dddd0006-0000-0000-0000-000000000000', // QA
-        lior:  'dddd0007-0000-0000-0000-000000000000', // Dev
-        tal:   'dddd0008-0000-0000-0000-000000000000', // Hardware
+        yael:  'dddd0001-0000-0000-0000-000000000000',
+        david: 'dddd0002-0000-0000-0000-000000000000',
+        noa:   'dddd0003-0000-0000-0000-000000000000',
+        ariel: 'dddd0004-0000-0000-0000-000000000000',
+        maya:  'dddd0005-0000-0000-0000-000000000000',
+        omer:  'dddd0006-0000-0000-0000-000000000000',
+        lior:  'dddd0007-0000-0000-0000-000000000000',
+        tal:   'dddd0008-0000-0000-0000-000000000000',
     },
-
     task: {
-        // Alpha — Sprint 1 (מתנה)
         a1_hw:  'eeee0001-0000-0000-0000-000000000000',
         a1_dev: 'eeee0002-0000-0000-0000-000000000000',
         a1_qa:  'eeee0003-0000-0000-0000-000000000000',
         a1_pm:  'eeee0004-0000-0000-0000-000000000000',
-        // Beta — Sprint 1 (מתנה)
         b1_hw:  'eeee0005-0000-0000-0000-000000000000',
         b1_dev: 'eeee0006-0000-0000-0000-000000000000',
         b1_qa:  'eeee0007-0000-0000-0000-000000000000',
@@ -48,341 +40,168 @@ const ID = {
     },
 } as const;
 
-// ── Seed ──────────────────────────────────────────────────────────────────────
-
 async function seed() {
-    const app = await NestFactory.createApplicationContext(AppModule, {
-        logger: ['error', 'warn'],
-    });
-    const db = app.get(SupabaseService).db;
+    const sql = postgres(process.env.DATABASE_URL ?? '', { ssl: 'require', max: 1 });
 
-    // ── 1. Challenge ─────────────────────────────────────────────────────────
-    log.log('Seeding challenges...');
-    await upsert(db, 'challenges', [
-        {
-            id: ID.challenge,
-            title: 'Tech School 3D Design — שנה א׳',
-            description:
-                'תוכנית תלת-מימד לנבחרת Tech School, שנה א׳. ' +
-                'למידה מבוססת אתגרים (CBL) בהלימה למודל SEM. ' +
-                'שלושה אתגרים קבוצתיים: מתנה, משחקים ומיתוג אישי.',
-            is_active: true,
-            order_index: 1,
-            monday_board_id: null,
-        },
-    ]);
+    try {
+        // ── 1. Challenge ─────────────────────────────────────────────────────
+        log('Seeding challenges...');
+        await sql`
+            INSERT INTO challenges (id, title, description, is_active, order_index, monday_board_id)
+            VALUES (
+                ${ID.challenge},
+                ${'Tech School 3D Design — שנה א׳'},
+                ${'תוכנית תלת-מימד לנבחרת Tech School, שנה א׳. למידה מבוססת אתגרים (CBL) בהלימה למודל SEM. שלושה אתגרים קבוצתיים: מתנה, משחקים ומיתוג אישי.'},
+                ${true}, ${1}, ${null}
+            )
+            ON CONFLICT (id) DO UPDATE SET
+                title = EXCLUDED.title, is_active = EXCLUDED.is_active
+        `;
+        log('  ✓ challenges (1 row)');
 
-    // ── 2. Sprints ───────────────────────────────────────────────────────────
-    log.log('Seeding sprints...');
-    await upsert(db, 'sprints', [
-        {
-            id: ID.sprint.gift,
-            challenge_id: ID.challenge,
-            title: 'אתגר 01 — מתנה',
-            description:
-                'יסודות התלת-מימד, צורות וטכניקות בסיס. ' +
-                'כל קבוצה מעצבת ומדפיסה מתנה אישית אחת.',
-            order_index: 1,
-        },
-        {
-            id: ID.sprint.games,
-            challenge_id: ID.challenge,
-            title: 'אתגר 02 — משחקים',
-            description:
-                'מספר רכיבים, שילוב בין טכניקות, תכנון לאחור. ' +
-                'יצירת משחק עם ייחוד לעיר/ישוב. גביע ראש העיר.',
-            order_index: 2,
-        },
-        {
-            id: ID.sprint.branding,
-            challenge_id: ID.challenge,
-            title: 'אתגר 03 — מיתוג אישי',
-            description:
-                'קנה מידה, הרכבה וחיבורים, שילוב חומרים, חיתוכים וחריטות. ' +
-                'מוגש בתחרות מוקדמות אזורית — Makeathon.',
-            order_index: 3,
-        },
-    ]);
+        // ── 2. Sprints ───────────────────────────────────────────────────────
+        log('Seeding sprints...');
+        await sql`
+            INSERT INTO sprints (id, challenge_id, title, description, order_index) VALUES
+            (${ID.sprint.gift},     ${ID.challenge}, ${'אתגר 01 — מתנה'},       ${'יסודות התלת-מימד, צורות וטכניקות בסיס. כל קבוצה מעצבת ומדפיסה מתנה אישית אחת.'}, ${1}),
+            (${ID.sprint.games},    ${ID.challenge}, ${'אתגר 02 — משחקים'},     ${'מספר רכיבים, שילוב בין טכניקות, תכנון לאחור. יצירת משחק עם ייחוד לעיר/ישוב. גביע ראש העיר.'}, ${2}),
+            (${ID.sprint.branding}, ${ID.challenge}, ${'אתגר 03 — מיתוג אישי'}, ${'קנה מידה, הרכבה וחיבורים, שילוב חומרים, חיתוכים וחריטות. מוגש בתחרות מוקדמות אזורית — Makeathon.'}, ${3})
+            ON CONFLICT (id) DO UPDATE SET title = EXCLUDED.title
+        `;
+        log('  ✓ sprints (3 rows)');
 
-    // ── 3. Teams (current_sprint_id can be set now that sprints exist) ────────
-    log.log('Seeding teams...');
-    await upsert(db, 'teams', [
-        {
-            id: ID.team.alpha,
-            name: 'Team Alpha — נבחרת אלפא',
-            accumulated_score: 150,
-            sprint_status: 'active',
-            is_completed: false,
-            current_challenge_id: ID.challenge,
-            current_sprint_id: ID.sprint.gift,
-        },
-        {
-            id: ID.team.beta,
-            name: 'Team Beta — נבחרת בטא',
-            accumulated_score: 120,
-            sprint_status: 'active',
-            is_completed: false,
-            current_challenge_id: ID.challenge,
-            current_sprint_id: ID.sprint.gift,
-        },
-    ]);
+        // ── 3. Teams ─────────────────────────────────────────────────────────
+        log('Seeding teams...');
+        await sql`
+            INSERT INTO teams (id, name, accumulated_score, sprint_status, is_completed, current_challenge_id, current_sprint_id) VALUES
+            (${ID.team.alpha}, ${'Team Alpha — נבחרת אלפא'}, ${150}, ${'active'}, ${false}, ${ID.challenge}, ${ID.sprint.gift}),
+            (${ID.team.beta},  ${'Team Beta — נבחרת בטא'},   ${120}, ${'active'}, ${false}, ${ID.challenge}, ${ID.sprint.gift})
+            ON CONFLICT (id) DO UPDATE SET
+                accumulated_score = EXCLUDED.accumulated_score, sprint_status = EXCLUDED.sprint_status,
+                current_challenge_id = EXCLUDED.current_challenge_id, current_sprint_id = EXCLUDED.current_sprint_id
+        `;
+        log('  ✓ teams (2 rows)');
 
-    // ── 4. Users ─────────────────────────────────────────────────────────────
-    log.log('Seeding users...');
-    await upsert(db, 'users', [
-        // Team Alpha
-        {
-            id: ID.user.yael,
-            name: 'Yael Mizrahi',
-            email: 'yael@techschool.demo',
-            current_team_id: ID.team.alpha,
-            current_role: 'pm',
-            total_active_time: 3240,
-        },
-        {
-            id: ID.user.david,
-            name: 'David Cohen',
-            email: 'david@techschool.demo',
-            current_team_id: ID.team.alpha,
-            current_role: 'qa',
-            total_active_time: 2880,
-        },
-        {
-            id: ID.user.noa,
-            name: 'Noa Ben-David',
-            email: 'noa@techschool.demo',
-            current_team_id: ID.team.alpha,
-            current_role: 'dev',
-            total_active_time: 4200,
-        },
-        {
-            id: ID.user.ariel,
-            name: 'Ariel Levy',
-            email: 'ariel@techschool.demo',
-            current_team_id: ID.team.alpha,
-            current_role: 'hardware',
-            total_active_time: 3600,
-        },
-        // Team Beta
-        {
-            id: ID.user.maya,
-            name: 'Maya Shapiro',
-            email: 'maya@techschool.demo',
-            current_team_id: ID.team.beta,
-            current_role: 'pm',
-            total_active_time: 2700,
-        },
-        {
-            id: ID.user.omer,
-            name: 'Omer Peretz',
-            email: 'omer@techschool.demo',
-            current_team_id: ID.team.beta,
-            current_role: 'qa',
-            total_active_time: 3100,
-        },
-        {
-            id: ID.user.lior,
-            name: 'Lior Katz',
-            email: 'lior@techschool.demo',
-            current_team_id: ID.team.beta,
-            current_role: 'dev',
-            total_active_time: 2400,
-        },
-        {
-            id: ID.user.tal,
-            name: 'Tal Friedman',
-            email: 'tal@techschool.demo',
-            current_team_id: ID.team.beta,
-            current_role: 'hardware',
-            total_active_time: 3900,
-        },
-    ]);
+        // ── 4. Users ─────────────────────────────────────────────────────────
+        log('Seeding users...');
+        await sql`
+            INSERT INTO users (id, name, email, current_team_id, current_role, total_active_time) VALUES
+            (${ID.user.yael},  ${'Yael Mizrahi'},  ${'yael@techschool.demo'},  ${ID.team.alpha}, ${'pm'},       ${3240}),
+            (${ID.user.david}, ${'David Cohen'},   ${'david@techschool.demo'}, ${ID.team.alpha}, ${'qa'},       ${2880}),
+            (${ID.user.noa},   ${'Noa Ben-David'}, ${'noa@techschool.demo'},   ${ID.team.alpha}, ${'dev'},      ${4200}),
+            (${ID.user.ariel}, ${'Ariel Levy'},    ${'ariel@techschool.demo'}, ${ID.team.alpha}, ${'hardware'}, ${3600}),
+            (${ID.user.maya},  ${'Maya Shapiro'},  ${'maya@techschool.demo'},  ${ID.team.beta},  ${'pm'},       ${2700}),
+            (${ID.user.omer},  ${'Omer Peretz'},   ${'omer@techschool.demo'},  ${ID.team.beta},  ${'qa'},       ${3100}),
+            (${ID.user.lior},  ${'Lior Katz'},     ${'lior@techschool.demo'},  ${ID.team.beta},  ${'dev'},      ${2400}),
+            (${ID.user.tal},   ${'Tal Friedman'},  ${'tal@techschool.demo'},   ${ID.team.beta},  ${'hardware'}, ${3900})
+            ON CONFLICT (id) DO UPDATE SET
+                name = EXCLUDED.name, current_team_id = EXCLUDED.current_team_id,
+                current_role = EXCLUDED.current_role
+        `;
+        log('  ✓ users (8 rows)');
 
-    // ── 5. Tasks — Sprint 1 (מתנה), both teams ───────────────────────────────
-    // Statuses are mixed intentionally to make the demo board look alive:
-    //   Alpha: approved / teacher_review / qa_review / pending
-    //   Beta:  approved / pm_review     / pending   / pending
-    log.log('Seeding tasks...');
-    await upsert(db, 'tasks', [
+        // ── 5. Tasks ─────────────────────────────────────────────────────────
+        log('Seeding tasks...');
+        const qaChecklistA = JSON.stringify({ isCompleted: true, hasErrors: false, improvements: ['הוסף chamfer לפינות חדות'] });
+        const qaChecklistB = JSON.stringify({ isCompleted: true, hasErrors: false, improvements: ['תמיכות נראות מינימליות — בדוק שוב'] });
+        const qaChecklistC = JSON.stringify({ isCompleted: true, hasErrors: false, improvements: [] });
+        const qaChecklistD = JSON.stringify({ isCompleted: true, hasErrors: true,  improvements: ['הקטן צפיפות תמיכות', 'בדוק זווית overhang'] });
 
-        // ── Team Alpha ────────────────────────────────────────────────────────
-        {
-            id: ID.task.a1_hw,
-            sprint_id: ID.sprint.gift,
-            team_id: ID.team.alpha,
-            assigned_role: 'hardware',
-            title: 'עיצוב אובייקט מתנה ב-Fusion 360',
-            description:
-                'צרו אובייקט תלת-מימדי בעל משמעות אישית תוך שימוש בצורות בסיס. ' +
-                'גובה מקסימלי 10ס"מ. על האובייקט להיות ניתן להדפסה ללא תמיכות.',
-            status: 'approved',
-            submission_url: 'https://drive.google.com/demo/gift-design-alpha',
-            submitted_by: ID.user.ariel,
-            reviewed_by_qa: ID.user.david,
-            reviewed_by_pm: ID.user.yael,
-            qa_checklist: {
-                isCompleted: true,
-                hasErrors: false,
-                improvements: ['הוסף chamfer לפינות חדות'],
-            },
-            qa_notes: 'המודל תקין, מידות בתוך הספק.',
-            pm_notes: 'מאושר להדפסה. עבודה מצוינת!',
-        },
-        {
-            id: ID.task.a1_dev,
-            sprint_id: ID.sprint.gift,
-            team_id: ID.team.alpha,
-            assigned_role: 'dev',
-            title: 'ייצוא קובץ STL ואופטימיזציה להדפסה',
-            description:
-                'ייצאו את המודל לפורמט STL, בדקו עובי דפנות מינימלי (1.2מ"מ) ' +
-                'והוסיפו תמיכות במידת הצורך בתוכנת Slicer.',
-            status: 'teacher_review',
-            submission_url: 'https://drive.google.com/demo/stl-alpha',
-            submitted_by: ID.user.noa,
-            reviewed_by_qa: ID.user.david,
-            reviewed_by_pm: ID.user.yael,
-            qa_checklist: {
-                isCompleted: true,
-                hasErrors: false,
-                improvements: ['תמיכות נראות מינימליות — בדוק שוב'],
-            },
-            qa_notes: 'קובץ נקי ומוכן.',
-            pm_notes: 'שולח למורה לאישור סופי.',
-        },
-        {
-            id: ID.task.a1_qa,
-            sprint_id: ID.sprint.gift,
-            team_id: ID.team.alpha,
-            assigned_role: 'qa',
-            title: 'בדיקת QA: מידות, עובי דפנות, הדפסה',
-            description:
-                'בצעו בדיקת QA מלאה: ודאו שהמידות תואמות לדרישות, ' +
-                'בדקו עובי דפנות (מינ׳ 1.2מ"מ), ובצעו סימולציית הדפסה ב-Slicer.',
-            status: 'qa_review',
-            submission_url: 'https://drive.google.com/demo/qa-checklist-alpha',
-            submitted_by: ID.user.david,
-        },
-        {
-            id: ID.task.a1_pm,
-            sprint_id: ID.sprint.gift,
-            team_id: ID.team.alpha,
-            assigned_role: 'pm',
-            title: 'הגשת תוצר קבוצתי ל-LMS + הכנת פרזנטציה',
-            description:
-                'רכזו את כל תוצרי הצוות, העלו ל-LMS ובנו מצגת קצרה (5 שקפים) ' +
-                'שמסבירה את תהליך העיצוב: בעיה → פתרון → איטרציות → תוצר סופי.',
-            status: 'pending',
-        },
+        await sql`
+            INSERT INTO tasks (id, sprint_id, team_id, assigned_role, title, description, status,
+                               submission_url, submitted_by, reviewed_by_qa, reviewed_by_pm,
+                               qa_checklist, qa_notes, pm_notes) VALUES
+            (
+                ${ID.task.a1_hw}, ${ID.sprint.gift}, ${ID.team.alpha}, ${'hardware'},
+                ${'עיצוב אובייקט מתנה ב-Fusion 360'},
+                ${'צרו אובייקט תלת-מימדי בעל משמעות אישית תוך שימוש בצורות בסיס. גובה מקסימלי 10ס"מ. על האובייקט להיות ניתן להדפסה ללא תמיכות.'},
+                ${'approved'}, ${'https://drive.google.com/demo/gift-design-alpha'},
+                ${ID.user.ariel}, ${ID.user.david}, ${ID.user.yael},
+                ${qaChecklistA}::jsonb, ${'המודל תקין, מידות בתוך הספק.'}, ${'מאושר להדפסה. עבודה מצוינת!'}
+            ),
+            (
+                ${ID.task.a1_dev}, ${ID.sprint.gift}, ${ID.team.alpha}, ${'dev'},
+                ${'ייצוא קובץ STL ואופטימיזציה להדפסה'},
+                ${'ייצאו את המודל לפורמט STL, בדקו עובי דפנות מינימלי (1.2מ"מ) והוסיפו תמיכות במידת הצורך בתוכנת Slicer.'},
+                ${'teacher_review'}, ${'https://drive.google.com/demo/stl-alpha'},
+                ${ID.user.noa}, ${ID.user.david}, ${ID.user.yael},
+                ${qaChecklistB}::jsonb, ${'קובץ נקי ומוכן.'}, ${'שולח למורה לאישור סופי.'}
+            ),
+            (
+                ${ID.task.a1_qa}, ${ID.sprint.gift}, ${ID.team.alpha}, ${'qa'},
+                ${'בדיקת QA: מידות, עובי דפנות, הדפסה'},
+                ${'בצעו בדיקת QA מלאה: ודאו שהמידות תואמות לדרישות, בדקו עובי דפנות (מינ׳ 1.2מ"מ), ובצעו סימולציית הדפסה ב-Slicer.'},
+                ${'qa_review'}, ${'https://drive.google.com/demo/qa-checklist-alpha'},
+                ${ID.user.david}, ${null}, ${null}, ${null}::jsonb, ${null}, ${null}
+            ),
+            (
+                ${ID.task.a1_pm}, ${ID.sprint.gift}, ${ID.team.alpha}, ${'pm'},
+                ${'הגשת תוצר קבוצתי ל-LMS + הכנת פרזנטציה'},
+                ${'רכזו את כל תוצרי הצוות, העלו ל-LMS ובנו מצגת קצרה (5 שקפים) שמסבירה את תהליך העיצוב.'},
+                ${'pending'}, ${null}, ${null}, ${null}, ${null}, ${null}::jsonb, ${null}, ${null}
+            ),
+            (
+                ${ID.task.b1_hw}, ${ID.sprint.gift}, ${ID.team.beta}, ${'hardware'},
+                ${'עיצוב מחזיק מפתחות מותאם אישית'},
+                ${'עצבו מחזיק מפתחות עם ייחוד אישי (שם, צורה, סמל) ב-Fusion 360. חור לטבעת קוטר 6מ"מ, גובה מקסימלי 8ס"מ.'},
+                ${'approved'}, ${'https://drive.google.com/demo/keychain-beta'},
+                ${ID.user.tal}, ${ID.user.omer}, ${ID.user.maya},
+                ${qaChecklistC}::jsonb, ${null}, ${'עיצוב מרשים עם נגיעה אישית.'}
+            ),
+            (
+                ${ID.task.b1_dev}, ${ID.sprint.gift}, ${ID.team.beta}, ${'dev'},
+                ${'הגדרות Slicer + מבני תמיכה'},
+                ${'הגדירו הגדרות Slicer (layer: 0.2מ"מ, infill: 20%), הוסיפו supports אוטומטיים ושמרו פרופיל מותאם לצוות.'},
+                ${'pm_review'}, ${'https://drive.google.com/demo/slicer-beta'},
+                ${ID.user.lior}, ${ID.user.omer}, ${null},
+                ${qaChecklistD}::jsonb, ${'בעיות קלות — עדיין ניתן להדפסה. שולח ל-PM.'}, ${null}
+            ),
+            (
+                ${ID.task.b1_qa}, ${ID.sprint.gift}, ${ID.team.beta}, ${'qa'},
+                ${'אימות מידות מול דרישות האתגר'},
+                ${'ודאו שהמחזיק עומד בדרישות: גובה מקסימלי 8ס"מ, חור לטבעת בקוטר 6מ"מ, ואין חלקים עצמאיים שיתפרקו בהדפסה.'},
+                ${'pending'}, ${null}, ${null}, ${null}, ${null}, ${null}::jsonb, ${null}, ${null}
+            ),
+            (
+                ${ID.task.b1_pm}, ${ID.sprint.gift}, ${ID.team.beta}, ${'pm'},
+                ${'תיעוד תהליך העיצוב ותיאום הגשה'},
+                ${'תעדו את תהליך העיצוב ב-Google Doc: 3 איטרציות, שגיאות, מה למדתם ומה הייתם עושים אחרת. הגישו יחד עם קובץ STL.'},
+                ${'pending'}, ${null}, ${null}, ${null}, ${null}, ${null}::jsonb, ${null}, ${null}
+            )
+            ON CONFLICT (id) DO UPDATE SET status = EXCLUDED.status
+        `;
+        log('  ✓ tasks (8 rows)');
 
-        // ── Team Beta ─────────────────────────────────────────────────────────
-        {
-            id: ID.task.b1_hw,
-            sprint_id: ID.sprint.gift,
-            team_id: ID.team.beta,
-            assigned_role: 'hardware',
-            title: 'עיצוב מחזיק מפתחות מותאם אישית',
-            description:
-                'עצבו מחזיק מפתחות עם ייחוד אישי (שם, צורה, סמל) ב-Fusion 360. ' +
-                'חור לטבעת קוטר 6מ"מ, גובה מקסימלי 8ס"מ.',
-            status: 'approved',
-            submission_url: 'https://drive.google.com/demo/keychain-beta',
-            submitted_by: ID.user.tal,
-            reviewed_by_qa: ID.user.omer,
-            reviewed_by_pm: ID.user.maya,
-            qa_checklist: {
-                isCompleted: true,
-                hasErrors: false,
-                improvements: [],
-            },
-            pm_notes: 'עיצוב מרשים עם נגיעה אישית.',
-        },
-        {
-            id: ID.task.b1_dev,
-            sprint_id: ID.sprint.gift,
-            team_id: ID.team.beta,
-            assigned_role: 'dev',
-            title: 'הגדרות Slicer + מבני תמיכה',
-            description:
-                'הגדירו הגדרות Slicer (layer: 0.2מ"מ, infill: 20%), ' +
-                'הוסיפו supports אוטומטיים ושמרו פרופיל מותאם לצוות.',
-            status: 'pm_review',
-            submission_url: 'https://drive.google.com/demo/slicer-beta',
-            submitted_by: ID.user.lior,
-            reviewed_by_qa: ID.user.omer,
-            qa_checklist: {
-                isCompleted: true,
-                hasErrors: true,
-                improvements: ['הקטן צפיפות תמיכות', 'בדוק זווית overhang'],
-            },
-            qa_notes: 'בעיות קלות — עדיין ניתן להדפסה. שולח ל-PM.',
-        },
-        {
-            id: ID.task.b1_qa,
-            sprint_id: ID.sprint.gift,
-            team_id: ID.team.beta,
-            assigned_role: 'qa',
-            title: 'אימות מידות מול דרישות האתגר',
-            description:
-                'ודאו שהמחזיק עומד בדרישות: גובה מקסימלי 8ס"מ, ' +
-                'חור לטבעת בקוטר 6מ"מ, ואין חלקים עצמאיים שיתפרקו בהדפסה.',
-            status: 'pending',
-        },
-        {
-            id: ID.task.b1_pm,
-            sprint_id: ID.sprint.gift,
-            team_id: ID.team.beta,
-            assigned_role: 'pm',
-            title: 'תיעוד תהליך העיצוב ותיאום הגשה',
-            description:
-                'תעדו את תהליך העיצוב ב-Google Doc: 3 איטרציות, שגיאות, ' +
-                'מה למדתם ומה הייתם עושים אחרת. הגישו יחד עם קובץ STL.',
-            status: 'pending',
-        },
-    ]);
+        // ── 6. Hint counters ─────────────────────────────────────────────────
+        log('Seeding hint counters...');
+        await sql`
+            INSERT INTO team_hint_counters (user_id, team_id, hint_count) VALUES
+            (${ID.user.noa},   ${ID.team.alpha}, ${2}),
+            (${ID.user.ariel}, ${ID.team.alpha}, ${4}),
+            (${ID.user.lior},  ${ID.team.beta},  ${1}),
+            (${ID.user.tal},   ${ID.team.beta},  ${3})
+            ON CONFLICT (user_id, team_id) DO UPDATE SET hint_count = EXCLUDED.hint_count
+        `;
+        log('  ✓ team_hint_counters (4 rows)');
 
-    // ── 6. Hint counters — shows the system has been used ────────────────────
-    log.log('Seeding hint counters...');
-    await upsert(db, 'team_hint_counters', [
-        { user_id: ID.user.noa,   team_id: ID.team.alpha, hint_count: 2 },
-        { user_id: ID.user.ariel, team_id: ID.team.alpha, hint_count: 4 }, // over limit → points deducted
-        { user_id: ID.user.lior,  team_id: ID.team.beta,  hint_count: 1 },
-        { user_id: ID.user.tal,   team_id: ID.team.beta,  hint_count: 3 },
-    ]);
-
-    await app.close();
-    log.log('✅  Seed complete!');
-    log.log('');
-    log.log('Demo credentials (no auth — use IDs directly):');
-    log.log(`  Team Alpha PM  → userId: ${ID.user.yael}  (Yael Mizrahi)`);
-    log.log(`  Team Alpha QA  → userId: ${ID.user.david} (David Cohen)`);
-    log.log(`  Team Alpha Dev → userId: ${ID.user.noa}   (Noa Ben-David)`);
-    log.log(`  Team Alpha HW  → userId: ${ID.user.ariel} (Ariel Levy)`);
-    log.log(`  Team Beta  PM  → userId: ${ID.user.maya}  (Maya Shapiro)`);
-    log.log(`  Team Beta  QA  → userId: ${ID.user.omer}  (Omer Peretz)`);
-    log.log(`  Team Beta  Dev → userId: ${ID.user.lior}  (Lior Katz)`);
-    log.log(`  Team Beta  HW  → userId: ${ID.user.tal}   (Tal Friedman)`);
-    log.log(`  Challenge      → ${ID.challenge}`);
-    log.log(`  Active Sprint  → ${ID.sprint.gift} (אתגר 01 — מתנה)`);
-}
-
-// ── Helper ────────────────────────────────────────────────────────────────────
-
-async function upsert(db: any, table: string, rows: object[]) {
-    const { error } = await db
-        .from(table)
-        .upsert(rows, { onConflict: 'id' });
-
-    if (error) {
-        log.error(`Failed to upsert into "${table}": ${error.message}`);
-        throw error;
+        log('');
+        log('✅  Seed complete!');
+        log('');
+        log('Demo users:');
+        log(`  Alpha PM  → ${ID.user.yael}  (Yael Mizrahi)`);
+        log(`  Alpha QA  → ${ID.user.david} (David Cohen)`);
+        log(`  Alpha Dev → ${ID.user.noa}   (Noa Ben-David)`);
+        log(`  Alpha HW  → ${ID.user.ariel} (Ariel Levy)`);
+        log(`  Beta  PM  → ${ID.user.maya}  (Maya Shapiro)`);
+        log(`  Beta  QA  → ${ID.user.omer}  (Omer Peretz)`);
+        log(`  Beta  Dev → ${ID.user.lior}  (Lior Katz)`);
+        log(`  Beta  HW  → ${ID.user.tal}   (Tal Friedman)`);
+    } catch (e) {
+        err(`Seed failed: ${(e as Error).message}`);
+        process.exit(1);
+    } finally {
+        await sql.end();
     }
-    log.log(`  ✓ ${table} (${rows.length} rows)`);
 }
 
-// ── Run ───────────────────────────────────────────────────────────────────────
-
-seed().catch((err) => {
-    console.error('Seed failed:', err);
-    process.exit(1);
-});
+seed();

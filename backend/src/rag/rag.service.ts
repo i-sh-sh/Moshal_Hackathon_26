@@ -1,10 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { SupabaseService } from '../supabase/supabase.service';
-import {
-    SYLLABUS_BY_SPRINT,
-    GENERIC_SYLLABUS,
-    SprintSyllabus,
-} from './syllabus';
+import { DbService } from '../db/db.service';
+import { SYLLABUS_BY_SPRINT, GENERIC_SYLLABUS, SprintSyllabus } from './syllabus';
 
 export interface TeamProgress {
     approvedCount: number;
@@ -13,31 +9,24 @@ export interface TeamProgress {
 }
 
 export interface HintContext {
-    // Task
     taskTitle: string;
     taskDescription: string;
     assignedRole: string;
-    // Syllabus
     syllabus: SprintSyllabus;
-    // Progress
     teamProgress: TeamProgress;
-    hintNumber: number;       // the hint they are about to receive
-    hintsUsedSoFar: number;   // 0, 1, 2, 3...
-    isLastFreeHint: boolean;  // hint #3 — warn gently
-    isOverFreeLimit: boolean; // hint #4+ — points already deducted
+    hintNumber: number;
+    hintsUsedSoFar: number;
+    isLastFreeHint: boolean;
+    isOverFreeLimit: boolean;
 }
 
 @Injectable()
 export class RagService {
     private readonly logger = new Logger(RagService.name);
 
-    constructor(private readonly supabase: SupabaseService) {}
+    constructor(private readonly db: DbService) {}
 
-    async buildContext(
-        taskId: string,
-        userId: string,
-        teamId: string,
-    ): Promise<HintContext> {
+    async buildContext(taskId: string, userId: string, teamId: string): Promise<HintContext> {
         const [task, hintCount] = await Promise.all([
             this.fetchTask(taskId),
             this.fetchHintCount(userId, teamId),
@@ -51,69 +40,47 @@ export class RagService {
             ? await this.fetchTeamProgress(teamId, task.sprint_id, syllabus.hebrewTitle)
             : { approvedCount: 0, totalCount: 0, sprintTitle: syllabus.hebrewTitle };
 
-        const hintNumber    = hintCount + 1;
-        const FREE_LIMIT    = 3;
+        const hintNumber = hintCount + 1;
+        const FREE_LIMIT = 3;
 
         return {
-            taskTitle:       task?.title       ?? 'Unknown task',
+            taskTitle: task?.title ?? 'Unknown task',
             taskDescription: task?.description ?? '',
-            assignedRole:    task?.assigned_role ?? 'dev',
+            assignedRole: task?.assigned_role ?? 'dev',
             syllabus,
             teamProgress,
             hintNumber,
-            hintsUsedSoFar:   hintCount,
-            isLastFreeHint:   hintNumber === FREE_LIMIT,
-            isOverFreeLimit:  hintNumber > FREE_LIMIT,
+            hintsUsedSoFar: hintCount,
+            isLastFreeHint: hintNumber === FREE_LIMIT,
+            isOverFreeLimit: hintNumber > FREE_LIMIT,
         };
     }
 
-    // ── Private helpers ────────────────────────────────────────────────────────
-
     private async fetchTask(taskId: string) {
         if (!taskId) return null;
-
-        const { data, error } = await this.supabase.db
-            .from('tasks')
-            .select('title, description, assigned_role, sprint_id')
-            .eq('id', taskId)
-            .maybeSingle();
-
-        if (error) {
-            this.logger.warn(`fetchTask failed for ${taskId}: ${error.message}`);
-            return null;
-        }
-        return data;
+        const [row] = await this.db.sql<{ title: string; description: string | null; assigned_role: string; sprint_id: string }[]>`
+            SELECT title, description, assigned_role, sprint_id FROM tasks WHERE id = ${taskId}
+        `.catch((e: Error) => {
+            this.logger.warn(`fetchTask failed for ${taskId}: ${e.message}`);
+            return [];
+        });
+        return row ?? null;
     }
 
     private async fetchHintCount(userId: string, teamId: string): Promise<number> {
-        const { data } = await this.supabase.db
-            .from('team_hint_counters')
-            .select('hint_count')
-            .eq('user_id', userId)
-            .eq('team_id', teamId)
-            .maybeSingle();
-
-        return data?.hint_count ?? 0;
+        const [row] = await this.db.sql<{ hint_count: number }[]>`
+            SELECT hint_count FROM team_hint_counters WHERE user_id = ${userId} AND team_id = ${teamId}
+        `.catch(() => []);
+        return row?.hint_count ?? 0;
     }
 
-    private async fetchTeamProgress(
-        teamId: string,
-        sprintId: string,
-        sprintTitle: string,
-    ): Promise<TeamProgress> {
-        const { data: tasks, error } = await this.supabase.db
-            .from('tasks')
-            .select('status')
-            .eq('team_id', teamId)
-            .eq('sprint_id', sprintId);
-
-        if (error || !tasks) {
-            return { approvedCount: 0, totalCount: 0, sprintTitle };
-        }
-
+    private async fetchTeamProgress(teamId: string, sprintId: string, sprintTitle: string): Promise<TeamProgress> {
+        const tasks = await this.db.sql<{ status: string }[]>`
+            SELECT status FROM tasks WHERE team_id = ${teamId} AND sprint_id = ${sprintId}
+        `.catch(() => []);
         return {
             approvedCount: tasks.filter((t) => t.status === 'approved').length,
-            totalCount:    tasks.length,
+            totalCount: tasks.length,
             sprintTitle,
         };
     }
