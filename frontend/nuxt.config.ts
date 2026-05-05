@@ -15,6 +15,10 @@ export default defineNuxtConfig({
         },
     },
 
+    router: {
+        middleware: ['auth'],
+    },
+
     typescript: {
         strict: true,
     },
