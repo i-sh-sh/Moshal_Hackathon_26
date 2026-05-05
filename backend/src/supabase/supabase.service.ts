@@ -1,27 +1,23 @@
-import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 @Injectable()
-export class SupabaseService implements OnModuleInit {
+export class SupabaseService {
     private readonly logger = new Logger(SupabaseService.name);
-    private client!: SupabaseClient;
-
-    onModuleInit(): void {
-        const url = process.env.SUPABASE_URL;
-        const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-        if (!url || !key) {
-            this.logger.warn(
-                'SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not set — DB calls will fail',
-            );
-        }
-
-        // Service-role key bypasses RLS — backend is trusted
-        this.client = createClient(url ?? '', key ?? '');
-        this.logger.log('Supabase client initialised (service role)');
-    }
+    private _client: SupabaseClient | null = null;
 
     get db(): SupabaseClient {
-        return this.client;
+        if (!this._client) {
+            const url = process.env.SUPABASE_URL;
+            const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+            if (!url || !key) {
+                this.logger.warn('SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not set — DB calls will fail');
+            }
+
+            this._client = createClient(url ?? 'https://placeholder.supabase.co', key ?? 'placeholder');
+            this.logger.log('Supabase client initialised (service role)');
+        }
+        return this._client;
     }
 }
