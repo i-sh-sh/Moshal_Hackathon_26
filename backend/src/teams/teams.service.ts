@@ -1,91 +1,72 @@
-import {
-    Injectable,
-    InternalServerErrorException,
-    Logger,
-} from '@nestjs/common';
-import { SupabaseService } from '../supabase/supabase.service';
-
-export interface GroupLeaderboardRow {
-    id: string;
-    name: string;
-    accumulated_score: number;
-    sprint_status: string;
-    is_completed: boolean;
-    approved_task_count: number;
-}
-
-export interface IndividualLeaderboardRow {
-    id: string;
-    name: string;
-    current_team_id: string | null;
-    current_role: string | null;
-    approved_tasks: number;
-    total_active_time: number;
-    rank: number;
-}
+import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
+import { DbService } from '../db/db.service';
 
 @Injectable()
 export class TeamsService {
     private readonly logger = new Logger(TeamsService.name);
 
-    constructor(private readonly supabase: SupabaseService) {}
+    constructor(private readonly db: DbService) {}
 
-    /**
-     * Called after a task is approved by the teacher.
-     * Sets is_completed = true when ALL tasks in the sprint are approved.
-     */
     async checkAndCompleteTeam(teamId: string, sprintId: string): Promise<void> {
-        const { data: tasks, error } = await this.supabase.db
-            .from('tasks')
-            .select('status')
-            .eq('team_id', teamId)
-            .eq('sprint_id', sprintId);
+        const tasks = await this.db.sql<{ status: string }[]>`
+            SELECT status FROM tasks WHERE team_id = ${teamId} AND sprint_id = ${sprintId}
+        `;
+        if (!tasks.length) return;
 
-        if (error) {
-            this.logger.error('checkAndCompleteTeam query failed', error.message);
-            return;
-        }
-
-        if (!tasks || tasks.length === 0) return;
-
-        const allApproved = tasks.every((t) => t.status === 'approved');
-
-        if (allApproved) {
-            await this.supabase.db
-                .from('teams')
-                .update({ is_completed: true, sprint_status: 'completed' })
-                .eq('id', teamId);
-
+        if (tasks.every((t) => t.status === 'approved')) {
+            await this.db.sql`
+                UPDATE teams SET is_completed = true, sprint_status = 'completed', updated_at = now()
+                WHERE id = ${teamId}
+            `;
             this.logger.log(`Team ${teamId} completed sprint ${sprintId}`);
         }
     }
 
-    async getGroupLeaderboard(): Promise<GroupLeaderboardRow[]> {
-        const { data, error } = await this.supabase.db
-            .from('group_leaderboard')
-            .select('*');
-
-        if (error) throw new InternalServerErrorException(error.message);
-        return (data as GroupLeaderboardRow[]) ?? [];
+    async getGroupLeaderboard(): Promise<unknown[]> {
+        return [...await this.db.sql`SELECT * FROM group_leaderboard`];
     }
 
-    /** Returns only the top 3 to maintain student confidence */
-    async getIndividualLeaderboard(): Promise<IndividualLeaderboardRow[]> {
-        const { data, error } = await this.supabase.db
-            .from('individual_leaderboard')
-            .select('*')
-            .lte('rank', 3);
-
-        if (error) throw new InternalServerErrorException(error.message);
-        return (data as IndividualLeaderboardRow[]) ?? [];
+    async getIndividualLeaderboard(): Promise<unknown[]> {
+        return [...await this.db.sql`SELECT * FROM individual_leaderboard WHERE rank <= 3`];
     }
 
     async getTeacherAnalytics(): Promise<unknown[]> {
-        const { data, error } = await this.supabase.db
-            .from('teacher_analytics')
-            .select('*');
+        return [...await this.db.sql`SELECT * FROM teacher_analytics`];
+    }
 
-        if (error) throw new InternalServerErrorException(error.message);
-        return data ?? [];
+    async getTeamById(id: string): Promise<unknown> {
+        const [row] = await this.db.sql<Record<string, unknown>[]>`
+            SELECT t.id, t.name, t.accumulated_score, t.sprint_status, t.is_completed,
+                   t.current_challenge_id, t.current_sprint_id,
+                   s.id    AS sprint_id,
+                   s.title AS sprint_title,
+                   s.description AS sprint_description
+            FROM teams t
+            LEFT JOIN sprints s ON s.id = t.current_sprint_id
+            WHERE t.id = ${id}
+        `;
+        if (!row) return null;
+
+        return {
+            id: row.id,
+            name: row.name,
+            accumulated_score: row.accumulated_score,
+            sprint_status: row.sprint_status,
+            is_completed: row.is_completed,
+            current_challenge_id: row.current_challenge_id,
+            current_sprint_id: row.current_sprint_id,
+            sprints: row.sprint_id
+                ? { id: row.sprint_id, title: row.sprint_title, description: row.sprint_description }
+                : null,
+        };
+    }
+
+    async getSprintProgress(teamId: string, sprintId: string): Promise<unknown> {
+        const tasks = await this.db.sql<{ status: string }[]>`
+            SELECT status FROM tasks WHERE team_id = ${teamId} AND sprint_id = ${sprintId}
+        `;
+        const total = tasks.length;
+        const approved = tasks.filter((t) => t.status === 'approved').length;
+        return { total, approved };
     }
 }

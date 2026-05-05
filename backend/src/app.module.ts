@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { SupabaseModule } from './supabase/supabase.module';
+import { DbModule } from './db/db.module';
 import { AIModule } from './ai/ai.module';
 import { TasksModule } from './tasks/tasks.module';
 import { HintsModule } from './hints/hints.module';
@@ -9,7 +9,7 @@ import { WebhooksModule } from './webhooks/webhooks.module';
 
 @Module({
     imports: [
-        SupabaseModule,    // @Global — injected everywhere
+        DbModule,          // @Global — injected everywhere
         AIModule,
         MondayApiModule,
         TeamsModule,

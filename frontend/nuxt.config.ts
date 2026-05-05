@@ -1,15 +1,19 @@
 export default defineNuxtConfig({
     modules: ['@nuxtjs/tailwindcss'],
 
+    ssr: true,
+
+    // Netlify preset — set NITRO_PRESET=netlify in Netlify env vars
+    // (netlify.toml sets this automatically)
+
     runtimeConfig: {
-        // Server-only (never exposed to browser)
-        supabaseServiceKey: process.env.SUPABASE_SERVICE_KEY ?? '',
-        // Public (available in browser)
         public: {
-            supabaseUrl: process.env.SUPABASE_URL ?? '',
-            supabaseAnonKey: process.env.SUPABASE_ANON_KEY ?? '',
-            apiBaseUrl: process.env.API_BASE_URL ?? 'http://localhost:3001/api',
+            apiBaseUrl: 'http://localhost:3001/api', // set via NUXT_PUBLIC_API_BASE_URL
         },
+    },
+
+    router: {
+        middleware: ['auth'],
     },
 
     typescript: {

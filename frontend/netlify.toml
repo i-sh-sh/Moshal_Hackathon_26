@@ -1,0 +1,11 @@
+[build]
+  base    = "."
+  command = "npm run build"
+  publish = ".output/public"
+
+[build.environment]
+  NODE_VERSION   = "18"
+  NITRO_PRESET   = "netlify"
+
+[[plugins]]
+  package = "@netlify/plugin-functions-install-core"
