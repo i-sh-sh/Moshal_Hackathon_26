@@ -209,22 +209,24 @@ group by u.id;
 -- Teacher analytics — active time vs execution speed
 create or replace view public.teacher_analytics as
 select
-  u.id   as user_id,
+  u.id,
   u.name,
   u.email,
   u.current_team_id,
+  tm.name                                                as team_name,
   u.current_role,
   u.total_active_time,
-  count(tk.id)                                         as total_tasks,
-  count(tk.id) filter (where tk.status = 'approved')   as approved_tasks,
+  count(tk.id)                                           as total_tasks,
+  count(tk.id) filter (where tk.status = 'approved')     as approved_tasks,
   round(
     count(tk.id) filter (where tk.status = 'approved')::numeric
     / nullif(u.total_active_time, 0) * 3600,
     2
-  ) as tasks_per_hour   -- proxy for execution speed
+  ) as tasks_per_hour
 from public.users u
-left join public.tasks tk on tk.submitted_by = u.id
-group by u.id;
+left join public.teams  tm on tm.id = u.current_team_id
+left join public.tasks  tk on tk.submitted_by = u.id
+group by u.id, tm.name;
 
 -- ============================================================
 -- ROW LEVEL SECURITY

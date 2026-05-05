@@ -16,8 +16,9 @@
 7. [מערכת ה-Hints](#מערכת-ה-hints)
 8. [סימולטור Monday.com](#סימולטור-mondaycom)
 9. [משתני סביבה](#משתני-סביבה)
-10. [עבודה עם Git](#עבודה-עם-git)
-11. [מי אחראי על מה](#מי-אחראי-על-מה)
+10. [פריסה לאוויר (Supabase + Railway + Vercel)](#פריסה-לאוויר)
+11. [עבודה עם Git](#עבודה-עם-git)
+12. [מי אחראי על מה](#מי-אחראי-על-מה)
 
 ---
 
@@ -32,33 +33,34 @@ Moshal_Hackathon_26/
 │       ├── hints/               # לוגיקת מערכת ה-hints (3 חינם → ניכוי נקודות)
 │       ├── mock-monday/         # סימולטור Monday.com לדמו
 │       ├── monday/              # GraphQL client לשליחת עדכונים ל-Monday האמיתי
-│       ├── rag/                 # בניית הקשר לhints: syllabus + התקדמות צוות
-│       ├── supabase/            # חיבור ל-DB (service role)
+│       ├── rag/                 # בניית הקשר ל-hints: syllabus + התקדמות צוות
+│       ├── supabase/            # חיבור ל-DB (service role — עוקף RLS)
 │       ├── tasks/               # כל לוגיקת זרימת המשימות
 │       ├── teams/               # leaderboards, ניקוד, בדיקת סיום צוות
 │       ├── users/               # GET /users, GET /users/:id
-│       └── webhooks/            # קבלת events נכנסים מ-Monday
+│       ├── webhooks/            # קבלת events נכנסים מ-Monday
+│       └── seed.ts              # הזרעת נתוני פתיחה (אידמפוטנטי)
 │
 ├── frontend/                    # אפליקציית Nuxt 3
 │   ├── components/
-│   │   ├── EnglishTerm.vue      # מילון אנגלי-עברי בhover
-│   │   ├── HintPanel.vue        # היסטוריית hints ניתנת לכיווץ + בקשת hint חדש
-│   │   ├── Leaderboard.vue      # טבלת דירוג צוותים עם score bars
-│   │   ├── MockMondayBoard.vue  # ממשק המורה בסגנון Monday
-│   │   ├── SprintProgress.vue   # פס התקדמות sprint + ניקוד
-│   │   └── TaskBoard.vue        # לוח משימות — מציג כפתורים שונים לפי תפקיד
+│   │   ├── AnalyticsDashboard.vue # כרטיסי סיכום + טבלת analytics לכל תלמיד
+│   │   ├── EnglishTerm.vue        # מילון אנגלי-עברי בhover
+│   │   ├── HintPanel.vue          # היסטוריית hints ניתנת לכיווץ + בקשת hint חדש
+│   │   ├── Leaderboard.vue        # טבלת דירוג צוותים עם score bars
+│   │   ├── MockMondayBoard.vue    # ממשק המורה בסגנון Monday
+│   │   └── SprintProgress.vue     # פס התקדמות sprint + ניקוד
 │   ├── composables/
 │   │   ├── useLeaderboard.ts    # fetch לטבלת הניקוד
 │   │   ├── useTasks.ts          # כל קריאות ה-API למשימות ו-hints
 │   │   └── useUser.ts           # session state — שמירה ב-localStorage
+│   ├── middleware/
+│   │   └── auth.ts              # הגנה על נתיבים: מפנה ל-/ אם אין session
 │   ├── pages/
 │   │   ├── index.vue            # מסך כניסה — בחירת משתמש
 │   │   ├── student.vue          # /student — דשבורד תלמיד מלא
 │   │   └── teacher.vue          # /teacher — דשבורד המורה (סימולטור Monday)
-│   ├── services/
-│   │   └── mockService.ts       # נתוני דמה לפיתוח ללא backend חי
 │   └── types/
-│       └── types.ts             # טיפוסי TypeScript משותפים (חשוב לסנכרן עם backend)
+│       └── types.ts             # טיפוסי TypeScript משותפים
 │
 └── supabase/
     └── schema.sql               # כל ה-SQL: טבלאות, views, RLS, פונקציות
@@ -151,7 +153,7 @@ Dev מגיש עבודה
 cd backend
 cp .env.example .env   # מלא את הערכים
 npm install
-npm run seed           # יוצר 2 צוותים, 8 משתמשים, 3 ספרינטים, 8 משימות
+npm run seed           # יוצר challenge, sprint, 4 צוותים, משימות לדוגמה
 ```
 הסיד אידמפוטנטי — בטוח להריץ כמה פעמים.
 
@@ -172,14 +174,20 @@ npm run dev
 
 ### צעד 5 — בדיקה שהכל עובד
 - פתח `http://localhost:3000` — מסך בחירת משתמש
-- בחר תלמיד → תועבר ל-`/student` — הדשבורד המלא
-- פתח `http://localhost:3000/teacher` — ממשק המורה (סימולטור Monday)
+- בחר תלמיד → תועבר ל-`/student` — הדשבורד המלא (מתרענן אוטומטית כל 20 שניות)
+- פתח `http://localhost:3000/teacher` — ממשק המורה (סימולטור Monday + Analytics)
 
 ---
 
 ## Backend — NestJS
 
 ### מודולים ומה שהם עושים
+
+#### `SupabaseModule` — חיבור ה-DB (Global)
+קובץ: `src/supabase/supabase.service.ts`
+
+מאתחל `SupabaseClient` עם service role key (עוקף RLS — backend נחשב trusted).
+מסומן `@Global()` — כל המודולים מקבלים `SupabaseService` דרך DI ללא import ידני.
 
 #### `TasksModule` — הלב של המוצר
 קובץ: `src/tasks/tasks.service.ts`
@@ -211,12 +219,12 @@ requestHint() → RagService בונה הקשר מלא:
 קובץ: `src/teams/teams.service.ts`
 
 ```
-checkAndCompleteTeam()   → כל המשימות approved? → is_completed=true
-getGroupLeaderboard()    → כל הצוותים ממוינים לפי ניקוד
-getIndividualLeaderboard()→ top 3 בלבד (לשמירת ביטחון)
-getTeacherAnalytics()    → זמן פעיל vs מהירות ביצוע לכל תלמיד
-getTeamById()            → פרטי צוות כולל sprint נוכחי (join)
-getSprintProgress()      → כמה משימות אושרו מתוך הסה"כ
+checkAndCompleteTeam()    → כל המשימות approved? → is_completed=true
+getGroupLeaderboard()     → כל הצוותים ממוינים לפי ניקוד
+getIndividualLeaderboard() → top 3 בלבד
+getTeacherAnalytics()     → זמן פעיל vs מהירות ביצוע לכל תלמיד
+getTeamById()             → פרטי צוות כולל sprint נוכחי (join)
+getSprintProgress()       → כמה משימות אושרו מתוך הסה"כ
 ```
 
 #### `UsersModule` — ניהול משתמשים
@@ -274,7 +282,7 @@ findOne(id) → משתמש בודד עם team + role
 גריד של כרטיסי משתמשים עם אווטאר, שם, ותפקיד. לחיצה שומרת session ב-localStorage ומעבירה ל-`/student`.
 
 #### `pages/student.vue` — דשבורד התלמיד
-הדף המרכזי של האפליקציה:
+הדף המרכזי של האפליקציה. מתרענן אוטומטית כל 20 שניות עם אינדיקטור LIVE.
 
 | אזור | תיאור |
 |---|---|
@@ -286,7 +294,7 @@ findOne(id) → משתמש בודד עם team + role
 | Tab "Leaderboard" | טבלת הצוותים עם highlight לצוות שלך |
 
 #### `pages/teacher.vue` — דשבורד המורה
-עוטף את `MockMondayBoard.vue`.
+שני טאבים: **Monday Board** (MockMondayBoard.vue) + **Analytics** (AnalyticsDashboard.vue).
 
 ### קומפוננטות
 
@@ -299,15 +307,8 @@ findOne(id) → משתמש בודד עם team + role
 #### `Leaderboard.vue`
 טבלת צוותים ממוינת לפי ניקוד. score bars יחסיים, medals 🥇🥈🥉, highlight לצוות המחובר.
 
-#### `TaskBoard.vue`
-לוח המשימות של התלמידים — מציג כפתורים שונים לפי תפקיד:
-
-| תפקיד | מה הוא רואה |
-|---|---|
-| Dev / Hardware | כפתור "Submit Work" על משימות pending/rejected |
-| QA | כפתור "QA Review" עם checklist על משימות qa_review |
-| PM | כפתור "PM Review" עם סיכום QA על משימות pm_review |
-| כולם | כפתור "Hint 💡" על כל משימה פתוחה |
+#### `AnalyticsDashboard.vue`
+כרטיסי סיכום (מספר תלמידים, סה"כ משימות שאושרו, זמן פעיל ממוצע, תלמידים מתקדמים) + טבלה מפורטת לכל תלמיד עם progress bar לאישורים ומהירות tasks/שעה.
 
 #### `EnglishTerm.vue` — תרגום מונחים
 ```vue
@@ -340,6 +341,11 @@ const { rows, fetchLeaderboard } = useLeaderboard();
 // rows: GroupLeaderboardRow[] ממוינים לפי ניקוד
 ```
 
+### Middleware
+
+#### `middleware/auth.ts`
+מגן על כל הנתיבים. אם אין session ב-localStorage מפנה ל-`/` (מסך כניסה). רץ בצד הלקוח בלבד.
+
 ---
 
 ## Database — Supabase
@@ -364,11 +370,11 @@ users ←→ team_hint_counters ←→ teams
 | `teams` | accumulated_score, sprint_status, **is_completed** | `is_completed` חוסם challenge הבא |
 | `users` | current_team_id, **current_role**, total_active_time | role דינמי לפי challenge |
 | `sprints` | challenge_id, order_index | שלבי-משנה בתוך challenge |
-| `tasks` | sprint_id, team_id, **status**, qa_checklist, monday_item_id | לב המערכת |
+| `tasks` | sprint_id, team_id, **status**, qa_checklist (JSONB), monday_item_id | לב המערכת |
 | `hint_logs` | user_id, team_id, hint_number, points_deducted | כל hint מתועד |
 | `team_hint_counters` | user_id, team_id, hint_count | unique על (user, team) |
 
-### Views מובנים (נוצרים מה-schema)
+### Views מובנים
 
 | View | שימוש |
 |---|---|
@@ -448,6 +454,14 @@ NUXT_SUPABASE_SERVICE_KEY=eyJ...         # לserver routes בלבד
 
 ---
 
+## פריסה לאוויר
+
+הסטאק מומלץ לפריסה חינמית: **Supabase** (DB) + **Railway** (backend) + **Vercel** (frontend).
+
+ראה [DEPLOY.md](./DEPLOY.md) למדריך שלב-אחר-שלב מלא.
+
+---
+
 ## עבודה עם Git
 
 ```bash
@@ -463,7 +477,7 @@ git push origin master
 ### כללי אצבע
 - **שינית `frontend/types/types.ts`?** — תעדכן גם את הצד השני (backend DTOs)
 - **שינית `supabase/schema.sql`?** — תעדכן את הצוות לפני שמריצים בSupabase
-- **הוספת endpoint חדש?** — תוסיף אותו לclient המתאים בפרונטאנד
+- **הוספת endpoint חדש?** — תוסיף אותו לcomposable המתאים בפרונטאנד
 
 ---
 
@@ -471,6 +485,7 @@ git push origin master
 
 | תחום | קבצים רלוונטיים |
 |---|---|
+| **חיבור DB** | `backend/src/supabase/` |
 | **זרימת משימות** | `backend/src/tasks/` |
 | **מערכת hints + AI + RAG** | `backend/src/hints/`, `backend/src/ai/`, `backend/src/rag/` |
 | **ניקוד וסיום צוות** | `backend/src/teams/` |
@@ -478,7 +493,7 @@ git push origin master
 | **סימולטור Monday** | `backend/src/mock-monday/`, `frontend/components/MockMondayBoard.vue` |
 | **מסך כניסה** | `frontend/pages/index.vue`, `frontend/composables/useUser.ts` |
 | **דשבורד תלמיד** | `frontend/pages/student.vue`, `frontend/components/SprintProgress.vue`, `frontend/components/HintPanel.vue` |
-| **לוח משימות** | `frontend/components/TaskBoard.vue`, `frontend/composables/useTasks.ts` |
+| **Analytics מורה** | `frontend/components/AnalyticsDashboard.vue` |
 | **Leaderboard** | `frontend/components/Leaderboard.vue`, `frontend/composables/useLeaderboard.ts` |
-| **DB ו-RLS** | `supabase/schema.sql` |
+| **DB, RLS, Views** | `supabase/schema.sql` |
 | **טיפוסים משותפים** | `frontend/types/types.ts` |

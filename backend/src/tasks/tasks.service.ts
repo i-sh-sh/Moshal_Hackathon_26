@@ -7,7 +7,7 @@ import {
     NotFoundException,
     UnauthorizedException,
 } from '@nestjs/common';
-import { DbService } from '../db/db.service';
+import { SupabaseService } from '../supabase/supabase.service';
 import { MondayApiService } from '../monday/monday-api.service';
 import { TeamsService } from '../teams/teams.service';
 import { SubmitTaskDto } from './dto/submit-task.dto';
@@ -48,132 +48,209 @@ export class TasksService {
     private readonly logger = new Logger(TasksService.name);
 
     constructor(
-        private readonly db: DbService,
+        private readonly supabase: SupabaseService,
         private readonly mondayApi: MondayApiService,
         private readonly teamsService: TeamsService,
     ) {}
 
+    // ------------------------------------------------------------------
+    // Step 1: Dev/Hardware submits work → qa_review
+    // ------------------------------------------------------------------
     async submitTask(dto: SubmitTaskDto): Promise<Task> {
         const task = await this.fetchTask(dto.taskId);
 
         if (!['pending', 'rejected'].includes(task.status)) {
-            throw new BadRequestException(`Task cannot be submitted from status "${task.status}"`);
+            throw new BadRequestException(
+                `Task cannot be submitted from status "${task.status}"`,
+            );
         }
+
         await this.assertUserRole(dto.userId, task.team_id, ['dev', 'hardware']);
 
-        const [updated] = await this.db.sql<Task[]>`
-            UPDATE tasks
-            SET status = 'qa_review',
-                submission_url = ${dto.submissionUrl ?? null},
-                submission_image_url = ${dto.submissionImageUrl ?? null},
-                submitted_by = ${dto.userId},
-                updated_at = now()
-            WHERE id = ${dto.taskId}
-            RETURNING *
-        `;
-        if (!updated) throw new InternalServerErrorException('Update failed');
-        return updated;
+        const { data, error } = await this.supabase.db
+            .from('tasks')
+            .update({
+                status: 'qa_review',
+                submission_url: dto.submissionUrl ?? null,
+                submission_image_url: dto.submissionImageUrl ?? null,
+                submitted_by: dto.userId,
+            })
+            .eq('id', dto.taskId)
+            .select()
+            .single();
+
+        if (error) throw new InternalServerErrorException(error.message);
+        return data as Task;
     }
 
+    // ------------------------------------------------------------------
+    // Step 2: QA reviews → pm_review (approve) or pending (reject)
+    // ------------------------------------------------------------------
     async qaReview(dto: QaReviewDto): Promise<Task> {
         const task = await this.fetchTask(dto.taskId);
 
         if (task.status !== 'qa_review') {
-            throw new BadRequestException(`Task is not awaiting QA review (current: "${task.status}")`);
+            throw new BadRequestException(
+                `Task is not awaiting QA review (current: "${task.status}")`,
+            );
         }
+
         await this.assertUserRole(dto.userId, task.team_id, ['qa']);
 
-        const newStatus: TaskStatus = dto.decision === 'approve' ? 'pm_review' : 'pending';
-        const checklistJson = JSON.stringify(dto.checklist);
+        const newStatus: TaskStatus =
+            dto.decision === 'approve' ? 'pm_review' : 'pending';
 
-        const [updated] = await this.db.sql<Task[]>`
-            UPDATE tasks
-            SET status = ${newStatus},
-                qa_checklist = ${checklistJson}::jsonb,
-                qa_notes = ${dto.notes ?? null},
-                reviewed_by_qa = ${dto.userId},
-                updated_at = now()
-            WHERE id = ${dto.taskId}
-            RETURNING *
-        `;
-        if (!updated) throw new InternalServerErrorException('Update failed');
-        return updated;
+        const { data, error } = await this.supabase.db
+            .from('tasks')
+            .update({
+                status: newStatus,
+                qa_checklist: dto.checklist,
+                qa_notes: dto.notes ?? null,
+                reviewed_by_qa: dto.userId,
+            })
+            .eq('id', dto.taskId)
+            .select()
+            .single();
+
+        if (error) throw new InternalServerErrorException(error.message);
+        return data as Task;
     }
 
+    // ------------------------------------------------------------------
+    // Step 3: PM reviews → teacher_review (approve) or qa_review (reject)
+    //         On approve: update Monday + emit hardware LED event
+    // ------------------------------------------------------------------
     async pmReview(dto: PmReviewDto): Promise<Task> {
         const task = await this.fetchTask(dto.taskId);
 
         if (task.status !== 'pm_review') {
-            throw new BadRequestException(`Task is not awaiting PM review (current: "${task.status}")`);
+            throw new BadRequestException(
+                `Task is not awaiting PM review (current: "${task.status}")`,
+            );
         }
+
         await this.assertUserRole(dto.userId, task.team_id, ['pm']);
 
         if (dto.decision === 'approve') {
-            const [updated] = await this.db.sql<Task[]>`
-                UPDATE tasks
-                SET status = 'teacher_review',
-                    pm_notes = ${dto.notes ?? null},
-                    reviewed_by_pm = ${dto.userId},
-                    updated_at = now()
-                WHERE id = ${dto.taskId}
-                RETURNING *
-            `;
-            if (!updated) throw new InternalServerErrorException('Update failed');
+            const { data, error } = await this.supabase.db
+                .from('tasks')
+                .update({
+                    status: 'teacher_review',
+                    pm_notes: dto.notes ?? null,
+                    reviewed_by_pm: dto.userId,
+                })
+                .eq('id', dto.taskId)
+                .select()
+                .single();
 
+            if (error) throw new InternalServerErrorException(error.message);
+
+            // Notify Monday.com for teacher visibility
             if (task.monday_item_id) {
-                await this.mondayApi.updateItemStatus(task.monday_item_id, 'Pending Teacher Review');
+                await this.mondayApi.updateItemStatus(
+                    task.monday_item_id,
+                    'Pending Teacher Review',
+                );
             }
-            this.logger.log(`[HARDWARE_EVENT] GREEN_LED on | task_id=${dto.taskId} team_id=${task.team_id}`);
-            return updated;
+
+            // Mock hardware event — green LED
+            this.logger.log(
+                `[HARDWARE_EVENT] GREEN_LED on | task_id=${dto.taskId} team_id=${task.team_id}`,
+            );
+
+            return data as Task;
         } else {
-            const [updated] = await this.db.sql<Task[]>`
-                UPDATE tasks
-                SET status = 'qa_review',
-                    pm_notes = ${dto.notes ?? null},
-                    updated_at = now()
-                WHERE id = ${dto.taskId}
-                RETURNING *
-            `;
-            if (!updated) throw new InternalServerErrorException('Update failed');
-            return updated;
+            // Reject: return to QA for re-evaluation
+            const { data, error } = await this.supabase.db
+                .from('tasks')
+                .update({
+                    status: 'qa_review',
+                    pm_notes: dto.notes ?? null,
+                })
+                .eq('id', dto.taskId)
+                .select()
+                .single();
+
+            if (error) throw new InternalServerErrorException(error.message);
+            return data as Task;
         }
     }
 
+    // ------------------------------------------------------------------
+    // Step 4: Teacher approves via Monday webhook → approved
+    //         Then check if the whole team sprint is done
+    // ------------------------------------------------------------------
     async teacherApprove(taskId: string): Promise<void> {
         const task = await this.fetchTask(taskId);
 
         if (task.status !== 'teacher_review') {
-            this.logger.warn(`teacherApprove called on task ${taskId} with status "${task.status}" — ignoring`);
+            this.logger.warn(
+                `teacherApprove called on task ${taskId} with status "${task.status}" — ignoring`,
+            );
             return;
         }
 
-        await this.db.sql`
-            UPDATE tasks SET status = 'approved', updated_at = now() WHERE id = ${taskId}
-        `;
+        const { error } = await this.supabase.db
+            .from('tasks')
+            .update({ status: 'approved' })
+            .eq('id', taskId);
+
+        if (error) throw new InternalServerErrorException(error.message);
+
         this.logger.log(`Task ${taskId} approved by teacher`);
+
         await this.teamsService.checkAndCompleteTeam(task.team_id, task.sprint_id);
     }
 
+    // ------------------------------------------------------------------
+    // Queries
+    // ------------------------------------------------------------------
     async getTasksByTeam(teamId: string): Promise<Task[]> {
-        return this.db.sql<Task[]>`
-            SELECT * FROM tasks WHERE team_id = ${teamId} ORDER BY created_at ASC
-        `;
+        const { data, error } = await this.supabase.db
+            .from('tasks')
+            .select('*, sprints(title, order_index, challenge_id)')
+            .eq('team_id', teamId)
+            .order('created_at', { ascending: true });
+
+        if (error) throw new InternalServerErrorException(error.message);
+        return (data as Task[]) ?? [];
     }
 
+    // ------------------------------------------------------------------
+    // Helpers
+    // ------------------------------------------------------------------
     private async fetchTask(taskId: string): Promise<Task> {
-        const [row] = await this.db.sql<Task[]>`SELECT * FROM tasks WHERE id = ${taskId}`;
-        if (!row) throw new NotFoundException(`Task "${taskId}" not found`);
-        return row;
+        const { data, error } = await this.supabase.db
+            .from('tasks')
+            .select('*')
+            .eq('id', taskId)
+            .single();
+
+        if (error || !data) throw new NotFoundException(`Task "${taskId}" not found`);
+        return data as Task;
     }
 
-    private async assertUserRole(userId: string, teamId: string, allowedRoles: string[]): Promise<void> {
-        const [user] = await this.db.sql<{ current_role: string; current_team_id: string }[]>`
-            SELECT current_role, current_team_id FROM users WHERE id = ${userId}
-        `;
+    private async assertUserRole(
+        userId: string,
+        teamId: string,
+        allowedRoles: string[],
+    ): Promise<void> {
+        const { data: user } = await this.supabase.db
+            .from('users')
+            .select('current_role, current_team_id')
+            .eq('id', userId)
+            .single();
+
         if (!user) throw new UnauthorizedException('User not found');
-        if (user.current_team_id !== teamId) throw new ForbiddenException('User does not belong to this team');
+
+        if (user.current_team_id !== teamId) {
+            throw new ForbiddenException('User does not belong to this team');
+        }
+
         if (!allowedRoles.includes(user.current_role)) {
-            throw new ForbiddenException(`Role "${user.current_role}" cannot perform this action (allowed: ${allowedRoles.join(', ')})`);
+            throw new ForbiddenException(
+                `Role "${user.current_role}" cannot perform this action (allowed: ${allowedRoles.join(', ')})`,
+            );
         }
     }
 }
