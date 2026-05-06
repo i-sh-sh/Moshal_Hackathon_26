@@ -39,7 +39,7 @@ create table if not exists public.users (
   name              text not null,
   email             text not null unique,
   current_team_id   uuid references public.teams(id),
-  current_role      text check (current_role in ('pm','qa','dev','hardware')),
+  "current_role"    text check ("current_role" in ('pm','qa','dev','hardware')),
   total_active_time integer not null default 0,  -- seconds
   last_login_at     timestamptz,
   created_at        timestamptz not null default now(),
@@ -196,7 +196,7 @@ select
   u.id,
   u.name,
   u.current_team_id,
-  u.current_role,
+  u."current_role",
   count(t.id) filter (where t.status = 'approved') as approved_tasks,
   u.total_active_time,
   rank() over (
@@ -214,7 +214,7 @@ select
   u.email,
   u.current_team_id,
   tm.name                                                as team_name,
-  u.current_role,
+  u."current_role",
   u.total_active_time,
   count(tk.id)                                           as total_tasks,
   count(tk.id) filter (where tk.status = 'approved')     as approved_tasks,
