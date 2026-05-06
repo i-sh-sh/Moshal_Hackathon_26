@@ -3,6 +3,11 @@ node_modules/
 dist/
 .output/
 .env
+.env.local
 .DS_Store
 *.log
 backend/dist/
+backend/coverage/
+backend/tmp/
+.vscode/
+.idea/
