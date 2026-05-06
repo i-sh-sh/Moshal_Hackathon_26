@@ -6,118 +6,105 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 TeamSprintUp — a hi-tech-workplace simulation for students. Teams act as PM / QA / Dev / Hardware, push tasks through an approval pipeline, and request AI-generated hints. A teacher dashboard mimics Monday.com to drive challenges.
 
-The Hebrew `README.md` is the authoritative product spec — it is more detailed than this file and mostly up to date, but **be aware it is partly stale on the storage layer** (see "Important divergences" below).
+The Hebrew `README.md` is the original product spec — useful but partially out of date on tooling (e.g. it talks about Supabase; the running stack is Postgres via porsager/postgres on Neon). For backend architecture, prefer `docs/`.
 
 ## Stack & layout
 
-Three top-level pieces, deployed independently:
-
 ```
-backend/    NestJS 10 (TypeScript)        port 3001 — API only
-frontend/   Nuxt 3 (Vue 3) + Tailwind     port 3000 — SSR app
-supabase/   schema.sql                    DB schema (also used with Neon)
+backend/                     NestJS 10 (TypeScript) — port 3001 — API only
+frontend/                    Nuxt 3 (Vue 3) + Tailwind — port 3000 — SSR app
+supabase/schema.sql          v1 baseline DB schema (also used with Neon)
+backend/migrations/          Numbered SQL migrations applied on top of the baseline
+docs/                        Architecture docs — read these before changing modules
 ```
 
-`project-structure.json` is a generated snapshot — do not hand-edit; it will drift.
+`project-structure.json` is a generated snapshot — do not hand-edit.
 
 ## Common commands
 
 Backend (`cd backend`):
 ```bash
 npm install
-npm run start:dev      # nest start --watch
-npm run start:prod     # node dist/main (after `npm run build`)
-npm run build          # nest build → dist/
-npm run seed           # ts-node src/seed.ts — idempotent, safe to re-run
-npm run format         # prettier
+npm run migrate         # apply pending SQL migrations
+npm run seed            # idempotent demo data (8 students + 1 teacher + 1 admin)
+npm run start:dev       # nest start --watch — http://localhost:3001/api
+npm run start:prod      # node dist/main (after `npm run build`)
+npm run build           # tsc + nest build
+npm run test            # jest
+npm run test:cov        # jest with coverage
+npm run lint            # eslint
+npm run format          # prettier
 ```
 
 Frontend (`cd frontend`):
 ```bash
 npm install
-npm run dev            # nuxt dev — http://localhost:3000
+npm run dev             # nuxt dev — http://localhost:3000
 npm run build
-npm run generate
-npm run preview
 ```
 
-There is **no test runner, no linter, and no CI configured** in either workspace. Don't invent test commands.
+## Architecture — start here
 
-## Architecture — the parts that span files
+Read `docs/ARCHITECTURE.md` for the full picture. The four key invariants:
 
-### Task state machine (the core domain)
+1. **Layered**. Controllers do HTTP only. Services hold business logic and form an SDK that any consumer (HTTP, webhooks, CLI, future GraphQL) calls. Direct DB or external-API calls from controllers are forbidden.
+2. **Gatekeeper-first**. Every outbound HTTP / SDK call goes through `GatekeeperService.execute(provider, fn)`. It owns rate limiting (token bucket), FIFO queue overflow, retries (exp backoff + jitter), and structured logging. See `docs/GATEKEEPER.md`.
+3. **Integrations are mock-first**. External systems (Monday, Anthropic, Firebase, S3, Tech School) are abstracted behind `interface + mock + real` adapters. The active impl is selected by env var. The mocks let the whole stack run with zero external creds. See `docs/INTEGRATIONS.md`.
+4. **Auth is provider-agnostic**. `LocalAuthProvider` (bcrypt + JWT + refresh) is the default. `FirebaseAuthProvider` and `GoogleOAuthProvider` are stubs filled in when creds arrive. RBAC via `account_type` ∈ `student|teacher|admin`. See `docs/AUTH.md`.
 
-Single status column on `tasks` drives everything. Transitions live in `backend/src/tasks/tasks.service.ts`; each transition both checks the user's `current_role` against the allowed roles and mutates status:
+## Module map (backend/src/)
 
 ```
-pending ──submitTask (dev|hardware)──▶ qa_review
-qa_review ──qaReview approve (qa)────▶ pm_review
-qa_review ──qaReview reject (qa)─────▶ pending
-pm_review ──pmReview approve (pm)────▶ teacher_review   (+ Monday push, GREEN_LED log)
-pm_review ──pmReview reject  (pm)────▶ qa_review
-teacher_review ──teacherApprove──────▶ approved         (+ team-completion check)
+config/             Typed env config (loadAppConfig + ConfigService) — single source
+common/             Shared types, decorators (@Public, @Roles, @CurrentUser), errors
+audit/              AuditLogService — append-only record of security-relevant actions
+gatekeeper/         Outbound-call chokepoint (queue + retry + per-provider config)
+auth/               Login, register, refresh, logout. JWT + refresh tokens. Provider abstraction.
+admin/              Admin user CRUD (account_type='admin' only). Audited. Revokes sessions on security changes.
+activity/           Heartbeat + login hook for total_active_time tracking
+integrations/
+    ai/             Anthropic Claude (real, gracefully no-ops without key)
+    monday/         Monday GraphQL client (real, no-ops without token)
+    firebase/       Stub today; firebase-admin tomorrow
+    storage/        Mock writes to ./tmp/uploads; S3 tomorrow
+    techschool/     Fixture missions today; LMS API tomorrow
+tasks/              Task pipeline (pending → ... → approved)
+teams/              Leaderboards, completion checks
+users/              Read-only user listing (writes go through admin)
+hints/              Hint requests, billing, history
+rag/                Hint context builder + Hebrew/English syllabus
+mock-monday/        Teacher dashboard pretending to be Monday — NOT an integration adapter
+webhooks/           Inbound webhook handlers (Monday)
+db/                 Postgres connection (porsager/postgres, parameterised SQL)
+seed.ts             Demo data — bcrypt-hashed shared password
+migrate.ts          Migration runner — `npm run migrate`
 ```
 
-`teacherApprove` is the only transition with no role check — it is invoked either by the real Monday webhook (`webhooks/`) or by the teacher simulator (`mock-monday/`). Both call the **same** `TasksService.teacherApprove`; the simulator is purely a different trigger, not a different code path. When changing approval logic, change it once.
+## Conventions
 
-After `approved`, `TeamsService.checkAndCompleteTeam` runs: if every task in the sprint is `approved`, the team's `is_completed` flips and the next sprint becomes available.
+- **No `process.env.X` outside `config/`**. Inject `ConfigService` and read typed properties.
+- **No direct `fetch` / SDK calls outside `gatekeeper.execute(...)`**. Add a new provider in `gatekeeper/providers.config.ts` if needed.
+- **All SQL via `db.sql` tagged templates**. Never string-concatenate user input. `db.sql.unsafe` is allowed only for column-name interpolation against a closed allowlist (see `admin.service.ts`).
+- **DTOs declare every accepted field** with `class-validator` decorators — `forbidNonWhitelisted: true` is on, so unlisted fields are rejected.
+- **New modules carry a `@version` constant** at the top so `version: "1.00"` propagates per the team's coding rules.
+- **4-space indentation** throughout. Configured in `.prettierrc`.
+- **Hebrew strings stay Hebrew.** They appear in user-facing copy (especially `rag/syllabus.ts` and AI prompts) — don't translate when refactoring around them.
+- **The `[HARDWARE_EVENT] GREEN_LED on | ...` log line in `tasks.service.ts`** is intentional — it's the hardware-integration trigger.
 
-### Hints — RAG → Claude → score deduction
+## Auth migration phase
 
-`HintsService.requestHint` (`backend/src/hints/hints.service.ts`):
+Right now (Day 0): `/api/auth/*` and `/api/admin/*` and `/api/activity/*` are mounted, but the existing controllers (`/api/tasks/*`, `/api/hints/*`, `/api/teams/*`, etc.) **stay public** so the frontend keeps working unchanged. Tomorrow, the frontend will integrate the JWT flow and we will add `@UseGuards(JwtAuthGuard)` to the controllers that need it.
 
-1. `RagService.buildContext` assembles task + syllabus (`rag/syllabus.ts`, keyed by sprint UUID, falls back to `GENERIC_SYLLABUS`) + team progress + hint number.
-2. `AIService.generateHint` calls Claude (`@anthropic-ai/sdk`, model `claude-sonnet-4-6`) with depth conditioned on hint number: 1 = nudge, 2 = name the tool, 3+ = concrete step.
-3. First 3 hints per (user, team) are free; hint #4 onward calls SQL function `deduct_team_score(team_id, 10)` and writes `points_deducted = 10` on the row.
-4. Every call is logged in `hint_logs`; `team_hint_counters` (unique on user_id+team_id) holds the running count and resets per team.
+## Frontend contract
 
-Constants `FREE_HINTS = 3` and `POINTS_PER_EXTRA_HINT = 10` are in-file — change there if the rule changes.
+The frontend talks to the backend over HTTP only. Live API spec at `/api/docs` (Swagger). When adding endpoints:
 
-### Module wiring
+1. Define DTOs with `class-validator` + `@nestjs/swagger` decorators.
+2. Update the matching `frontend/composables/useX.ts` and the type in `frontend/types/types.ts` — there is no codegen.
 
-`AppModule` (`backend/src/app.module.ts`) imports modules in dependency order; `DbModule` is `@Global` so `DbService` is injectable everywhere without re-exporting. `TasksModule` imports `TeamsModule` and `MondayApiModule` — additions like score side-effects belong in `TeamsService`, not in `TasksService`.
+## Demo accounts
 
-### Bootstrapping
-
-`backend/src/main.ts`:
-- Global API prefix `/api` — every controller path is prefixed automatically; do not hardcode `/api` in controllers.
-- Global `ValidationPipe({ whitelist: true, forbidNonWhitelisted: true })` — DTOs must declare every accepted field with `class-validator` decorators or requests are rejected.
-- CORS allowlist comes from `CORS_ORIGINS` (comma-separated); defaults to `http://localhost:3000`.
-
-### Frontend ↔ backend contract
-
-- `frontend/types/types.ts` is the shared TypeScript shape. The codebase has no codegen — when a backend DTO changes, **manually update `types.ts` and any `useX` composable that consumes it**.
-- All HTTP calls funnel through composables (`useUser`, `useTasks`, `useLeaderboard`); pages do not call `$fetch` directly. Add new endpoints there, not inline in components.
-- Base URL comes from `runtimeConfig.public.apiBaseUrl` (env: `NUXT_PUBLIC_API_BASE_URL`), default `http://localhost:3001/api`.
-- Session is held in `localStorage` via `useUser` (`useState` + `onMounted` sync) — there is no auth on the backend, the user id comes in request bodies. Any new mutation endpoint must include `userId` and validate role via `TasksService.assertUserRole`-style checks.
-
-### Database access
-
-- Backend uses **`postgres` (porsager/postgres)** via `DbService` (`backend/src/db/db.service.ts`), reading `DATABASE_URL` with `ssl: 'require'`. Queries are written as tagged-template SQL; bind values get parameterised automatically — **never string-concatenate user input into the template**.
-- `supabase/schema.sql` contains tables, views (`group_leaderboard`, `individual_leaderboard`, `teacher_analytics`), the `deduct_team_score` function, and RLS policies. The same SQL is applied to a Supabase project or a Neon DB depending on the deploy target.
-- RLS exists in the schema but the backend uses a privileged connection that bypasses it. The frontend never talks to the DB directly — only the backend does — so RLS is currently belt-and-suspenders, not enforced by the running stack.
-
-## Important divergences (don't get tripped up)
-
-- **README says "Supabase" / `src/supabase/`. The actual backend uses Neon (or any Postgres) via `src/db/`.** The `.env.example` and `DEPLOYMENT.md` are correct — the env var is `DATABASE_URL`, not `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY`. The README's env section is out of date; trust `backend/.env.example`.
-- Two deploy guides exist and target different stacks: `DEPLOY.md` (Railway + Vercel + Supabase) and `DEPLOYMENT.md` (Render + Netlify + Neon). `DEPLOYMENT.md` matches the current code (`DATABASE_URL`, `netlify.toml`, `render.yaml`). Prefer it.
-- The README enumerates a Monday-related env var (`MONDAY_API_TOKEN`) that the real Monday integration needs; for the demo path the simulator (`mock-monday/`) is sufficient and Monday calls become no-ops.
-
-## Environment
-
-`backend/.env` (see `backend/.env.example`):
-- `DATABASE_URL` — Postgres connection string with `?sslmode=require`
-- `ANTHROPIC_API_KEY` — required for hints + analysis
-- `CORS_ORIGINS` — comma-separated frontend origins
-- `MONDAY_API_TOKEN`, `MONDAY_WEBHOOK_SECRET` — only needed for real Monday, optional for the simulator
-- `PORT` — default 3001
-
-`frontend/.env`:
-- `NUXT_PUBLIC_API_BASE_URL` — must end in `/api`
-- `NITRO_PRESET=netlify` for Netlify deploys (see `netlify.toml`)
-
-## Conventions worth preserving
-
-- The codebase uses **4-space indentation** in TypeScript (both backend and frontend). Match it; Prettier is configured implicitly through `format` but no config file is checked in.
-- Hebrew strings appear in user-facing copy and in some doc comments. Don't translate them when editing surrounding code.
-- Logger lines like `[HARDWARE_EVENT] GREEN_LED on | ...` in `tasks.service.ts` are intentional demo signals (they're the integration point for a physical hardware mockup) — keep them when refactoring.
+After `npm run seed`, every account has password `demo1234` (override with `SEED_DEMO_PASSWORD`):
+- `admin@techschool.demo` — admin (full user CRUD)
+- `teacher@techschool.demo` — teacher
+- 8 students split between `Team Alpha` and `Team Beta` (yael/david/noa/ariel and maya/omer/lior/tal)
