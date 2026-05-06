@@ -8,7 +8,7 @@ import {
     UnauthorizedException,
 } from '@nestjs/common';
 import { DbService } from '../db/db.service';
-import { MondayApiService } from '../monday/monday-api.service';
+import { MondayApiService } from '../integrations/monday/monday-api.service';
 import { TeamsService } from '../teams/teams.service';
 import { SubmitTaskDto } from './dto/submit-task.dto';
 import { QaReviewDto } from './dto/qa-review.dto';

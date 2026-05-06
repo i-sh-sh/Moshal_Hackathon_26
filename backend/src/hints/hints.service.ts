@@ -1,6 +1,6 @@
 import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
 import { DbService } from '../db/db.service';
-import { AIService } from '../ai/ai.service';
+import { AIService } from '../integrations/ai/ai.service';
 import { RagService } from '../rag/rag.service';
 import { RequestHintDto } from './dto/request-hint.dto';
 

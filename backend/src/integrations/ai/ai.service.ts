@@ -1,0 +1,189 @@
+/**
+ * AIService — domain-level methods backed by Anthropic Claude.
+ *
+ * Lives under `integrations/` because every call goes outbound to the
+ * Anthropic API. All requests are routed through the GatekeeperService —
+ * never call `this.client` directly outside `gatekeeper.execute(...)`.
+ *
+ * Falls back to a deterministic mock string when no API key is configured,
+ * so local dev and offline demos still work end-to-end.
+ *
+ * @version 1.10
+ */
+
+import { Injectable, Logger } from '@nestjs/common';
+import Anthropic from '@anthropic-ai/sdk';
+import type { HintContext } from '../../rag/rag.service';
+import { ConfigService } from '../../config/config.service';
+import { GatekeeperService } from '../../gatekeeper/gatekeeper.service';
+
+export interface AIAnalysisRequest {
+    text: string;
+    context?: Record<string, unknown>;
+}
+
+export interface AIAnalysisResult {
+    jargonScore: number;
+    softSkillScore: number;
+    detectedTerms: string[];
+    suggestions: string[];
+    rawResponse: unknown;
+}
+
+const HINT_UNAVAILABLE = 'Hint unavailable right now. Try again in a moment.';
+
+@Injectable()
+export class AIService {
+    private readonly logger = new Logger(AIService.name);
+    private readonly client: Anthropic | null;
+    private readonly model: string;
+    private readonly enabled: boolean;
+
+    constructor(
+        private readonly config: ConfigService,
+        private readonly gatekeeper: GatekeeperService,
+    ) {
+        const { anthropicApiKey, anthropicModel } = this.config.integrations;
+        this.enabled = anthropicApiKey.length > 0;
+        this.model = anthropicModel;
+        this.client = this.enabled ? new Anthropic({ apiKey: anthropicApiKey }) : null;
+        if (!this.enabled) {
+            this.logger.warn('ANTHROPIC_API_KEY not set — AI calls will return mock responses');
+        }
+    }
+
+    async analyze(request: AIAnalysisRequest): Promise<AIAnalysisResult> {
+        if (!this.client) {
+            return {
+                jargonScore: 0,
+                softSkillScore: 0,
+                detectedTerms: [],
+                suggestions: ['AI analysis disabled — ANTHROPIC_API_KEY not set'],
+                rawResponse: null,
+            };
+        }
+        const systemPrompt =
+            `You are an educational assistant for a hi-tech simulation platform.\n` +
+            `Analyze the provided text and return ONLY a valid JSON object (no markdown):\n` +
+            `{ "jargonScore": <0-100>, "softSkillScore": <0-100>, ` +
+            `"detectedTerms": ["t1"], "suggestions": ["s1"] }\n` +
+            `jargonScore: how much professional tech jargon is used (higher = more jargon).\n` +
+            `softSkillScore: communication clarity & soft skills (higher = better).\n` +
+            `Context: ${JSON.stringify(request.context ?? {})}`;
+
+        try {
+            const message = await this.gatekeeper.execute('anthropic', () =>
+                this.client!.messages.create({
+                    model: this.model,
+                    max_tokens: 512,
+                    system: systemPrompt,
+                    messages: [{ role: 'user', content: request.text }],
+                }),
+            );
+            const raw = message.content[0]?.type === 'text' ? message.content[0].text : '{}';
+            const parsed = JSON.parse(raw) as Partial<AIAnalysisResult>;
+            return {
+                jargonScore: parsed.jargonScore ?? 0,
+                softSkillScore: parsed.softSkillScore ?? 0,
+                detectedTerms: parsed.detectedTerms ?? [],
+                suggestions: parsed.suggestions ?? [],
+                rawResponse: parsed,
+            };
+        } catch (err) {
+            this.logger.error('AI analysis failed', (err as Error).message);
+            return {
+                jargonScore: 0, softSkillScore: 0,
+                detectedTerms: [],
+                suggestions: ['AI analysis temporarily unavailable'],
+                rawResponse: null,
+            };
+        }
+    }
+
+    async generateHint(ctx: HintContext): Promise<string> {
+        if (!this.client) return this.mockHint(ctx);
+        const systemPrompt = this.buildHintSystemPrompt(ctx);
+        const userMessage = `תן Hint #${ctx.hintNumber} למשימה: "${ctx.taskTitle}"`;
+
+        try {
+            const message = await this.gatekeeper.execute('anthropic', () =>
+                this.client!.messages.create({
+                    model: this.model,
+                    max_tokens: 300,
+                    system: systemPrompt,
+                    messages: [{ role: 'user', content: userMessage }],
+                }),
+            );
+            return message.content[0]?.type === 'text'
+                ? message.content[0].text
+                : HINT_UNAVAILABLE;
+        } catch (err) {
+            this.logger.error('generateHint failed', (err as Error).message);
+            return HINT_UNAVAILABLE;
+        }
+    }
+
+    private buildHintSystemPrompt(ctx: HintContext): string {
+        const { syllabus, teamProgress, hintNumber, isLastFreeHint, isOverFreeLimit } = ctx;
+        const techniquesBlock = syllabus.fusion360Techniques
+            .map((t) => `  • ${t.name} — ${t.hebrewDescription} (${t.sprintRelevance})`)
+            .join('\n');
+        const depthInstruction =
+            hintNumber === 1
+                ? 'Hint #1: כוון לכיוון הכללי — שם הכלי או העקרון הרלוונטי, בלי לפרט.'
+                : hintNumber === 2
+                ? 'Hint #2: תן כיוון ספציפי יותר — איזה כלי להשתמש ואיך לגשת אליו.'
+                : 'Hint #3+: תלמיד/ה מתקשה — תן צעד מעשי וישיר עם הנחיה ממוקדת.';
+        const costNotice = isLastFreeHint
+            ? '\n⚠️ זהו ה-Hint החינמי האחרון. רמז נוסף יעלה 10 נקודות לצוות.'
+            : isOverFreeLimit
+            ? `\n💸 Hint #${hintNumber} — נוכו 10 נקודות מהצוות.`
+            : '';
+        return `
+אתה מנטור תומך ב-Tech School — תוכנית תלת-מימד לנוער.
+תפקידך: לעזור לתלמיד/ה להתקדם מבלי לתת את התשובה ישירות.
+
+═══════════════════════════════════
+📚 SYLLABUS — ${syllabus.hebrewTitle}
+═══════════════════════════════════
+תקופה: ${syllabus.period} | מפגשים: ${syllabus.sessionsCount}
+מטרת האתגר: ${syllabus.cblGoal}
+נושאי ליבה: ${syllabus.coreTopics.join(' | ')}
+אירוע שיא: ${syllabus.peakEvent}
+הגשה: ${syllabus.submissionNote}
+
+כלי Fusion 360 רלוונטיים:
+${techniquesBlock}
+
+מיומנויות: ${syllabus.skillsToLearn.join(' | ')}
+
+═══════════════════════════════════
+📋 CURRENT TASK
+═══════════════════════════════════
+כותרת: ${ctx.taskTitle}
+תיאור: ${ctx.taskDescription}
+תפקיד: ${ctx.assignedRole.toUpperCase()}
+
+═══════════════════════════════════
+👥 TEAM PROGRESS
+═══════════════════════════════════
+ספרינט: ${teamProgress.sprintTitle}
+אושרו: ${teamProgress.approvedCount}/${teamProgress.totalCount}
+${costNotice}
+
+═══════════════════════════════════
+📏 HINT RULES
+═══════════════════════════════════
+${depthInstruction}
+- שלב עברית ואנגלית באופן טבעי
+- אם רלוונטי — ציין כלי Fusion 360 ספציפי בשמו
+- אל תתן את הפתרון המלא
+- עד 3 משפטים
+`.trim();
+    }
+
+    private mockHint(ctx: HintContext): string {
+        return `[Mock hint #${ctx.hintNumber}] חשוב על איזה כלי ב-Fusion 360 ` +
+            `יכול לעזור עם המשימה "${ctx.taskTitle}". (set ANTHROPIC_API_KEY to enable real hints)`;
+    }
+}
