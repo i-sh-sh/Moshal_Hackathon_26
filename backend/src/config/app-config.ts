@@ -46,8 +46,10 @@ export interface IntegrationsConfig {
     readonly techschool: IntegrationMode;
     readonly mondayApiToken: string;
     readonly mondayWebhookSecret: string;
-    readonly anthropicApiKey: string;
-    readonly anthropicModel: string;
+    readonly azureOpenAiEndpoint: string;
+    readonly azureOpenAiApiKey: string;
+    readonly azureOpenAiDeployment: string;
+    readonly azureOpenAiApiVersion: string;
 }
 
 export interface GatekeeperOverrides {
@@ -145,11 +147,13 @@ export function loadAppConfig(): AppConfig {
             techschool: enumEnv('TECHSCHOOL_PROVIDER', ['mock', 'real'] as const, 'mock'),
             mondayApiToken: process.env.MONDAY_API_TOKEN ?? '',
             mondayWebhookSecret: process.env.MONDAY_WEBHOOK_SECRET ?? '',
-            anthropicApiKey: process.env.ANTHROPIC_API_KEY ?? '',
-            anthropicModel: process.env.ANTHROPIC_MODEL ?? 'claude-sonnet-4-6',
+            azureOpenAiEndpoint: process.env.AZURE_OPENAI_ENDPOINT ?? '',
+            azureOpenAiApiKey: process.env.AZURE_OPENAI_API_KEY ?? '',
+            azureOpenAiDeployment: process.env.AZURE_OPENAI_DEPLOYMENT ?? 'gpt-4o',
+            azureOpenAiApiVersion: process.env.AZURE_OPENAI_API_VERSION ?? '2024-02-15-preview',
         },
         gatekeeper: {
-            anthropicRpm: process.env.GATEKEEPER_ANTHROPIC_RPM ? intEnv('GATEKEEPER_ANTHROPIC_RPM', 50) : undefined,
+            anthropicRpm: process.env.GATEKEEPER_AZURE_RPM ? intEnv('GATEKEEPER_AZURE_RPM', 60) : undefined,
             mondayRpm: process.env.GATEKEEPER_MONDAY_RPM ? intEnv('GATEKEEPER_MONDAY_RPM', 60) : undefined,
         },
     };

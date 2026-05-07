@@ -7,7 +7,7 @@
  */
 
 export type ProviderName =
-    | 'anthropic'
+    | 'azure'
     | 'monday'
     | 'firebase'
     | 'storage'
