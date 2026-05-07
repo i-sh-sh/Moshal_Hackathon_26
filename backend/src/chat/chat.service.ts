@@ -5,7 +5,9 @@
  * Teachers are added as observers to all channels on login.
  * DUDE bot messages are stored with is_bot=true.
  *
- * @version 1.00
+ * Private DUDE conversations are stored in private_dude_messages (migration 007).
+ *
+ * @version 1.10
  */
 
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
@@ -164,6 +166,44 @@ export class ChatService {
         await this.supabase.db
             .from('channel_analysis_log')
             .insert({ channel_id: channelId, message_count: messageCount, summary });
+    }
+
+    // ── Private DUDE messages ──────────────────────────────────────────────────
+
+    async savePrivateMessage(userId: string, role: 'student' | 'dude', content: string): Promise<void> {
+        await this.supabase.db
+            .from('private_dude_messages')
+            .insert({ user_id: userId, role, content });
+    }
+
+    async getPrivateMessages(userId: string, limit = 100): Promise<{ id: string; role: 'student' | 'dude'; content: string; createdAt: string }[]> {
+        const { data } = await this.supabase.db
+            .from('private_dude_messages')
+            .select('id, role, content, created_at')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: true })
+            .limit(limit);
+
+        return (data ?? []).map((r: any) => ({ id: r.id, role: r.role, content: r.content, createdAt: r.created_at }));
+    }
+
+    async getUnanalyzedPrivateMessages(userId: string): Promise<{ id: string; role: 'student' | 'dude'; content: string }[]> {
+        const { data } = await this.supabase.db
+            .from('private_dude_messages')
+            .select('id, role, content')
+            .eq('user_id', userId)
+            .eq('analyzed', false)
+            .order('created_at', { ascending: true });
+
+        return (data ?? []).map((r: any) => ({ id: r.id, role: r.role, content: r.content }));
+    }
+
+    async markPrivateMessagesAnalyzed(userId: string): Promise<void> {
+        await this.supabase.db
+            .from('private_dude_messages')
+            .update({ analyzed: true })
+            .eq('user_id', userId)
+            .eq('analyzed', false);
     }
 
     private mapChannel(r: any): ChatChannel {

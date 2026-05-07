@@ -15,14 +15,16 @@ import { ChatService, ChatMessage } from '../chat/chat.service';
 import { AIService } from '../integrations/ai/ai.service';
 import { StudentProfileService } from '../student-profile/student-profile.service';
 
-const AUTO_ANALYZE_INTERVAL = 10;
+const AUTO_ANALYZE_GROUP_INTERVAL = 10;
+const AUTO_ANALYZE_PRIVATE_INTERVAL = 5;
 
 @Injectable()
 export class DudeService {
     private readonly logger = new Logger(DudeService.name);
 
-    /** In-memory counter for auto-analysis trigger */
-    private readonly analyzeCounters = new Map<string, number>();
+    /** In-memory counters for auto-analysis triggers */
+    private readonly groupAnalyzeCounters   = new Map<string, number>();
+    private readonly privateAnalyzeCounters = new Map<string, number>();
 
     constructor(
         private readonly chat: ChatService,
@@ -32,29 +34,46 @@ export class DudeService {
 
     /**
      * Called after each student message is saved.
-     * Silently triggers background analysis every AUTO_ANALYZE_INTERVAL messages.
+     * Silently triggers background analysis every AUTO_ANALYZE_GROUP_INTERVAL messages.
      * Does NOT post any bot reply to the group channel.
      */
     async onStudentMessage(channelId: string, message: ChatMessage): Promise<void> {
         if (message.isBot) return;
 
-        const analyzeCount = (this.analyzeCounters.get(channelId) ?? 0) + 1;
-        this.analyzeCounters.set(channelId, analyzeCount);
-        if (analyzeCount >= AUTO_ANALYZE_INTERVAL) {
-            this.analyzeCounters.set(channelId, 0);
+        const count = (this.groupAnalyzeCounters.get(channelId) ?? 0) + 1;
+        this.groupAnalyzeCounters.set(channelId, count);
+        if (count >= AUTO_ANALYZE_GROUP_INTERVAL) {
+            this.groupAnalyzeCounters.set(channelId, 0);
             this.analyzeChannel(channelId).catch(() => undefined);
         }
     }
 
     /**
-     * Private 1-on-1 chat with DUDE for a single student.
+     * Private 1-on-1 chat with DUDE.
+     * Persists both sides to private_dude_messages and auto-analyzes every N exchanges.
      */
     async privateMentorChat(
         userId: string,
         message: string,
         history: { role: 'user' | 'assistant'; content: string }[],
     ): Promise<string> {
-        return this.ai.privateMentorChat(message, history);
+        // Save student message
+        this.chat.savePrivateMessage(userId, 'student', message).catch(() => undefined);
+
+        const reply = await this.ai.privateMentorChat(message, history);
+
+        // Save DUDE reply
+        this.chat.savePrivateMessage(userId, 'dude', reply).catch(() => undefined);
+
+        // Auto-analyze private chat every AUTO_ANALYZE_PRIVATE_INTERVAL student messages
+        const count = (this.privateAnalyzeCounters.get(userId) ?? 0) + 1;
+        this.privateAnalyzeCounters.set(userId, count);
+        if (count >= AUTO_ANALYZE_PRIVATE_INTERVAL) {
+            this.privateAnalyzeCounters.set(userId, 0);
+            this.analyzePrivate(userId).catch(() => undefined);
+        }
+
+        return reply;
     }
 
     /**
@@ -93,5 +112,31 @@ export class DudeService {
         const summary = summaryParts.join(' | ') || 'Analysis complete.';
         await this.chat.logAnalysis(channelId, messages.length, summary);
         return { analyzed: messages.length, summary };
+    }
+
+    /**
+     * Analyzes unanalyzed private DUDE messages for a single student.
+     * Called by teacher or auto-triggered every AUTO_ANALYZE_PRIVATE_INTERVAL messages.
+     */
+    async analyzePrivate(userId: string): Promise<{ analyzed: number; summary: string }> {
+        const messages = await this.chat.getUnanalyzedPrivateMessages(userId);
+        const studentMessages = messages.filter((m) => m.role === 'student');
+
+        if (studentMessages.length === 0) {
+            return { analyzed: 0, summary: 'No new private messages to analyze.' };
+        }
+
+        try {
+            const texts = studentMessages.map((m) => m.content);
+            const result = await this.ai.analyzeConversation(texts, userId);
+            await this.profiles.updateFromAnalysis(userId, result, undefined);
+            await this.chat.markPrivateMessagesAnalyzed(userId);
+            const summary = `private: jargon=${result.jargonScore}, soft=${result.softSkillScore}`;
+            this.logger.log(`Private analysis done for ${userId}: ${summary}`);
+            return { analyzed: studentMessages.length, summary };
+        } catch (err) {
+            this.logger.error(`Private analysis failed for ${userId}`, (err as Error).message);
+            return { analyzed: 0, summary: 'Analysis failed.' };
+        }
     }
 }
