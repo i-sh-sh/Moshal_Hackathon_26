@@ -20,6 +20,11 @@ export class TeamsController {
         return this.teams.getTeacherAnalytics();
     }
 
+    @Get('analytics/teacher-dashboard')
+    getTeacherDashboard() {
+        return this.teams.getTeacherDashboard();
+    }
+
     @Get(':id')
     getTeam(@Param('id') id: string) {
         return this.teams.getTeamById(id);

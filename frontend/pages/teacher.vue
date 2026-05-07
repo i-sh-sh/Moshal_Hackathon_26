@@ -66,12 +66,61 @@ watch(activeTab, (tab) => {
                     🧠 פרופילים
                 </button>
             </div>
-        </header>
 
-        <!-- Monday board -->
-        <div v-if="activeTab === 'board'" class="flex-1">
-            <MockMondayBoard />
-        </div>
+            <!-- ─── MISSIONS TAB ─── -->
+            <div v-if="activeTab === 'missions'" class="flex-1 px-8 pb-10">
+                <div class="mb-6">
+                    <h1 class="text-2xl font-extrabold text-gray-900">ניהול משימות וצוותים</h1>
+                    <p class="text-sm text-gray-500 mt-1">
+                        פתחו משימה לצוות, שבצו תפקידים, וסגרו את המשימה כשהיא הושלמה.
+                    </p>
+                </div>
+
+                <!-- Mission cards -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 max-w-6xl">
+                    <div
+                        v-for="c in teacherData.challenges.value"
+                        :key="c.id"
+                        class="bg-white rounded-2xl border border-gray-200 shadow-sm flex flex-col overflow-hidden"
+                    >
+                        <!-- Header strip -->
+                        <div class="px-5 py-3 bg-gradient-to-l from-cyan-50 to-white border-b border-gray-100 flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <span class="text-2xl">🏆</span>
+                                <span class="text-[10px] uppercase font-bold tracking-wider text-gray-400">אתגר</span>
+                            </div>
+                            <span :class="['text-[11px] font-semibold px-2 py-0.5 rounded-full', stateBadge(missionOverallState(c)).cls]">
+                                {{ stateBadge(missionOverallState(c)).text }}
+                            </span>
+                        </div>
+
+                        <!-- Body -->
+                        <div class="p-5 flex flex-col gap-3">
+                            <h3 class="text-base font-extrabold text-gray-900 leading-snug">{{ c.title }}</h3>
+                            <p class="text-xs text-gray-500 leading-relaxed line-clamp-3">{{ c.description }}</p>
+
+                            <div class="flex items-center gap-3 text-xs text-gray-500 mt-1">
+                                <span class="flex items-center gap-1">
+                                    <span>📅</span>
+                                    <span>{{ dateFor(c).toLocaleDateString('he-IL') }}</span>
+                                </span>
+                                <span class="text-gray-300">·</span>
+                                <span>{{ lessonsFor(c) }} שיעורי האתגר</span>
+                            </div>
+
+                            <!-- Per-team rows -->
+                            <div class="mt-2 space-y-2">
+                                <div
+                                    v-for="t in teacherData.teams.value"
+                                    :key="t.id"
+                                    class="bg-gray-50 rounded-xl border border-gray-200 p-3 flex flex-wrap items-center gap-2"
+                                >
+                                    <span class="text-sm font-semibold text-gray-800">👥 {{ t.name }}</span>
+                                    <span :class="['text-[10px] font-semibold px-2 py-0.5 rounded-full', stateBadge(teamMissionState(t, c.id)).cls]">
+                                        {{ stateBadge(teamMissionState(t, c.id)).text }}
+                                    </span>
+
+                                    <div class="flex-1" />
 
         <!-- Analytics -->
         <div v-else-if="activeTab === 'analytics'" class="flex-1 p-6 bg-gray-50">
@@ -118,3 +167,14 @@ watch(activeTab, (tab) => {
         </div>
     </div>
 </template>
+
+<style scoped>
+.line-clamp-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+.toast-enter-active, .toast-leave-active { transition: all 0.25s ease; }
+.toast-enter-from, .toast-leave-to { opacity: 0; transform: translate(-50%, 12px); }
+</style>

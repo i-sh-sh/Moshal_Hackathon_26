@@ -2,7 +2,94 @@
 // TeamSprintUp — Shared Domain Types
 // ============================================================
 
-export type UserRole = 'pm' | 'qa' | 'dev' | 'hardware';
+// Internal role keys stay as the original DB taxonomy. Display labels
+// ("Designer", "Editor", "QA", "Printer") are mapped via ROLE_LABELS below.
+export type StudentRole = 'pm' | 'qa' | 'dev' | 'hardware';
+
+// Kept as alias so existing code (Task.assignedRole, etc.) still type-checks.
+export type UserRole = StudentRole;
+
+export const ROLE_PRIORITY: StudentRole[] = ['pm', 'qa', 'dev', 'hardware'];
+
+// Mapping: pm → Editor, qa → QA, dev → Designer, hardware → Printer
+export const ROLE_LABELS: Record<StudentRole, string> = {
+    pm:       'Editor',
+    qa:       'QA',
+    dev:      'Designer',
+    hardware: 'Printer',
+};
+
+export const ROLE_EMOJI: Record<StudentRole, string> = {
+    pm:       '✂️',
+    qa:       '🔍',
+    dev:      '📐',
+    hardware: '🖨️',
+};
+
+export interface RoleCount {
+    pm: number;
+    qa: number;
+    dev: number;
+    hardware: number;
+}
+
+export interface StudentWithRoleHistory {
+    id: string;
+    name: string;
+    email: string;
+    currentRole: StudentRole | null;
+    lastRoles: StudentRole[];
+    roleCount: RoleCount;
+    suggestedRole: StudentRole | null;
+}
+
+export interface TeacherPublishPayload {
+    teamId: string;
+}
+
+export interface TeacherAssignRolesPayload {
+    assignments: { userId: string; role: StudentRole }[];
+    challengeId?: string;
+    assignedBy?: string;
+}
+
+// ── Pre/post-mission quizzes ───────────────────────────────────────────────
+export type QuizPhase = 'pre' | 'post';
+
+export interface QuizAttempt {
+    id: string;
+    userId: string;
+    teamId: string | null;
+    challengeId: string;
+    phase: QuizPhase;
+    startedAt: string;
+    submittedAt: string | null;
+    score: number | null;
+    total: number;
+    pairedAttemptId: string | null;
+    learningGain: number | null;
+}
+
+export interface AttemptQuestion {
+    id: string;
+    questionId: string;
+    orderIndex: number;
+    prompt: string;
+    options: string[];
+    selectedIndex: number | null;
+    isCorrect: boolean | null;
+}
+
+export interface AttemptWithQuestions {
+    attempt: QuizAttempt;
+    questions: AttemptQuestion[];
+}
+
+export interface QuizSubmitResult {
+    score: number;
+    total: number;
+    learningGain: number | null;
+}
 
 export interface User {
     id: string;
