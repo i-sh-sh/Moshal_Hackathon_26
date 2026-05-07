@@ -102,22 +102,30 @@ onUnmounted(() => {
         <div class="flex-1 flex flex-col gap-3 min-w-0">
 
             <!-- Toolbar -->
-            <div v-if="selectedChannel" class="flex items-center gap-3">
+            <div v-if="selectedChannel" class="flex items-center gap-3 flex-wrap">
                 <span class="font-semibold text-white text-sm">{{ selectedChannel.name }}</span>
+                <span class="text-[11px] text-gray-500 bg-gray-800 border border-gray-700 px-2 py-0.5 rounded-full">
+                    🔇 DUDE שקט — ניתוח בלבד
+                </span>
                 <button
-                    class="ml-auto flex items-center gap-1.5 bg-indigo-600 text-white text-xs font-medium px-3 py-1.5 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
+                    class="mr-auto flex items-center gap-2 bg-indigo-600 text-white text-xs font-bold px-4 py-2 rounded-xl hover:bg-indigo-500 active:scale-95 transition-all disabled:opacity-50 shadow-lg shadow-indigo-900/40"
                     :disabled="analyzing"
                     @click="runAnalysis"
                 >
                     <span v-if="analyzing" class="inline-block w-3 h-3 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                    <span v-else>🧠 נתח שיחה</span>
+                    <span v-else>🧠</span>
+                    <span>{{ analyzing ? 'מנתח...' : 'נתח שיחה עכשיו' }}</span>
                 </button>
             </div>
 
             <!-- Analysis result -->
-            <div v-if="analyzeResult" class="bg-indigo-900/50 border border-indigo-700 rounded-xl px-4 py-3 text-xs text-indigo-200">
-                <p class="font-semibold mb-1">תוצאות ניתוח ({{ analyzeResult.analyzed }} הודעות)</p>
-                <p>{{ analyzeResult.summary }}</p>
+            <div v-if="analyzeResult" class="bg-indigo-900/60 border border-indigo-600 rounded-xl px-4 py-3 text-xs text-indigo-200 flex items-start gap-3">
+                <span class="text-lg shrink-0">✅</span>
+                <div>
+                    <p class="font-bold text-indigo-100 mb-1">ניתוח הושלם — {{ analyzeResult.analyzed }} הודעות נותחו</p>
+                    <p class="text-indigo-300 leading-relaxed">{{ analyzeResult.summary }}</p>
+                    <p class="text-indigo-500 mt-1 text-[11px]">פרופילי התלמידים עודכנו. ניתן לצפות בטאב "DUDE Insights".</p>
+                </div>
             </div>
 
             <!-- Messages -->

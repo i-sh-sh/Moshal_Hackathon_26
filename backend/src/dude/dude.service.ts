@@ -1,15 +1,13 @@
 /**
  * DudeService — orchestrates the DUDE AI bot.
  *
- * Decides when to respond in a channel, generates replies via AIService,
- * and triggers conversation analysis after idle periods.
+ * Group chat policy (v2):
+ *   • DUDE no longer posts messages in group channels.
+ *   • Analysis still runs silently every AUTO_ANALYZE_INTERVAL student messages.
+ *   • Teacher can trigger analysis manually via POST /dude/channels/:id/analyze.
+ *   • Private 1-on-1 mentor chat is unchanged.
  *
- * Response policy:
- *   • Every DUDE_RESPONSE_INTERVAL student messages in the channel.
- *   • Always when a message ends with "?" (question detected).
- *   • Never replies to its own messages (is_bot=true).
- *
- * @version 1.00
+ * @version 2.00
  */
 
 import { Injectable, Logger } from '@nestjs/common';
@@ -17,15 +15,12 @@ import { ChatService, ChatMessage } from '../chat/chat.service';
 import { AIService } from '../integrations/ai/ai.service';
 import { StudentProfileService } from '../student-profile/student-profile.service';
 
-const DUDE_RESPONSE_INTERVAL = 3;
 const AUTO_ANALYZE_INTERVAL = 10;
 
 @Injectable()
 export class DudeService {
     private readonly logger = new Logger(DudeService.name);
 
-    /** In-memory counter of student messages per channel since last DUDE response */
-    private readonly msgCounters = new Map<string, number>();
     /** In-memory counter for auto-analysis trigger */
     private readonly analyzeCounters = new Map<string, number>();
 
@@ -37,33 +32,17 @@ export class DudeService {
 
     /**
      * Called after each student message is saved.
-     * May post a DUDE reply to the channel.
+     * Silently triggers background analysis every AUTO_ANALYZE_INTERVAL messages.
+     * Does NOT post any bot reply to the group channel.
      */
     async onStudentMessage(channelId: string, message: ChatMessage): Promise<void> {
-        const count = (this.msgCounters.get(channelId) ?? 0) + 1;
-        this.msgCounters.set(channelId, count);
+        if (message.isBot) return;
 
-        const isQuestion = message.content.trim().endsWith('?');
-        const intervalHit = count >= DUDE_RESPONSE_INTERVAL;
-
-        // Auto-analysis trigger
         const analyzeCount = (this.analyzeCounters.get(channelId) ?? 0) + 1;
         this.analyzeCounters.set(channelId, analyzeCount);
         if (analyzeCount >= AUTO_ANALYZE_INTERVAL) {
             this.analyzeCounters.set(channelId, 0);
             this.analyzeChannel(channelId).catch(() => undefined);
-        }
-
-        if (!isQuestion && !intervalHit) return;
-
-        this.msgCounters.set(channelId, 0);
-
-        try {
-            const history = await this.chat.getMessages(channelId, 20);
-            const reply = await this.ai.generateDudeResponse(history, message.content);
-            await this.chat.sendBotMessage(channelId, reply);
-        } catch (err) {
-            this.logger.error('DUDE response failed', (err as Error).message);
         }
     }
 
