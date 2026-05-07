@@ -26,6 +26,9 @@ export interface AIAnalysisResult {
     softSkillScore: number;
     detectedTerms: string[];
     suggestions: string[];
+    struggleAreas: string[];
+    alertLevel: 'none' | 'low' | 'medium' | 'high';
+    alertMessage: string;
     rawResponse: unknown;
 }
 
@@ -76,17 +79,30 @@ export class AIService {
                 softSkillScore: 0,
                 detectedTerms: [],
                 suggestions: ['AI analysis disabled — Azure OpenAI not configured'],
+                struggleAreas: [],
+                alertLevel: 'none' as const,
+                alertMessage: '',
                 rawResponse: null,
             };
         }
 
         const systemPrompt =
-            `You are an educational assistant for a hi-tech simulation platform.\n` +
-            `Analyze the provided text and return ONLY a valid JSON object (no markdown):\n` +
-            `{ "jargonScore": <0-100>, "softSkillScore": <0-100>, ` +
-            `"detectedTerms": ["t1"], "suggestions": ["s1"] }\n` +
-            `jargonScore: how much professional tech jargon is used (higher = more jargon).\n` +
-            `softSkillScore: communication clarity & soft skills (higher = better).\n` +
+            `You are an educational assistant for a hi-tech simulation platform (Tech School).\n` +
+            `Analyze the provided student messages and return ONLY a valid JSON object (no markdown):\n` +
+            `{\n` +
+            `  "jargonScore": <0-100>,\n` +
+            `  "softSkillScore": <0-100>,\n` +
+            `  "detectedTerms": ["tech term 1", ...],\n` +
+            `  "suggestions": ["pedagogical suggestion 1", ...],\n` +
+            `  "struggleAreas": ["specific topic/task the student struggled with", ...],\n` +
+            `  "alertLevel": "none|low|medium|high",\n` +
+            `  "alertMessage": "Brief Hebrew sentence for the teacher about this student"\n` +
+            `}\n` +
+            `jargonScore: professional tech jargon usage (higher = more).\n` +
+            `softSkillScore: communication clarity & collaboration (higher = better).\n` +
+            `struggleAreas: specific topics, tools, or tasks where student showed confusion or repeated questions. Empty array if none.\n` +
+            `alertLevel: none=all good, low=minor confusion, medium=needs check-in, high=clearly stuck or frustrated.\n` +
+            `alertMessage: if alertLevel != none, write a short Hebrew sentence for the teacher (e.g. "התלמיד מתקשה עם ייצוא STL"). Otherwise empty string.\n` +
             `Context: ${JSON.stringify(request.context ?? {})}`;
 
         try {
@@ -107,6 +123,9 @@ export class AIService {
                 softSkillScore: parsed.softSkillScore ?? 0,
                 detectedTerms: parsed.detectedTerms ?? [],
                 suggestions: parsed.suggestions ?? [],
+                struggleAreas: parsed.struggleAreas ?? [],
+                alertLevel: parsed.alertLevel ?? 'none',
+                alertMessage: parsed.alertMessage ?? '',
                 rawResponse: parsed,
             };
         } catch (err) {
@@ -116,6 +135,9 @@ export class AIService {
                 softSkillScore: 0,
                 detectedTerms: [],
                 suggestions: ['AI analysis temporarily unavailable'],
+                struggleAreas: [],
+                alertLevel: 'none' as const,
+                alertMessage: '',
                 rawResponse: null,
             };
         }
@@ -275,6 +297,54 @@ ${depthInstruction}
     async analyzeConversation(messages: string[], userId: string): Promise<AIAnalysisResult> {
         const combined = messages.join('\n');
         return this.analyze({ text: combined, context: { userId, source: 'group_chat' } });
+    }
+
+    /**
+     * Private 1-on-1 mentor chat with DUDE.
+     * Answers freely but stays within Tech School challenge context.
+     */
+    async privateMentorChat(
+        message: string,
+        history: { role: 'user' | 'assistant'; content: string }[],
+    ): Promise<string> {
+        if (!this.client) {
+            return `[DUDE Mock] שלום! אני DUDE המנטור הפרטי שלך. שאל/י אותי כל דבר שקשור לאתגרים, Fusion 360, תפקידי הצוות, תהליכי עבודה ועוד. (set AZURE_OPENAI keys for real responses)`;
+        }
+
+        const systemPrompt =
+            `אתה DUDE — מנטור אישי וחכם בפלטפורמת Tech School לנוער.\n` +
+            `אתה מנהל שיחה פרטית עם תלמיד/ה אחד/ת.\n` +
+            `תוכל לדון בכל נושא שקשור לאתגרים הטכנולוגיים:\n` +
+            `  • Fusion 360 — עיצוב תלת-מימד, STL, הדפסה, מיפוי\n` +
+            `  • תפקידי הצוות — PM, QA, Dev, Hardware\n` +
+            `  • תהליכי עבודה — Agile, ספרינטים, ביקורת קוד, תיעוד\n` +
+            `  • מיומנויות רכות — תקשורת, ניהול זמן, עבודת צוות\n` +
+            `  • שאלות טכניות כלליות בגבולות האתגרים\n` +
+            `אל תדון בנושאים שאינם קשורים ל-Tech School.\n` +
+            `סגנון: ידידותי, מעודד, קצר (עד 4 משפטים). שלב עברית ואנגלית טכנית.`;
+
+        const contextMessages = history.slice(-12).map((m) => ({
+            role: m.role,
+            content: m.content,
+        }));
+
+        try {
+            const response = await this.gatekeeper.execute('azure', () =>
+                this.client!.chat.completions.create({
+                    model: this.deployment,
+                    max_tokens: 300,
+                    messages: [
+                        { role: 'system', content: systemPrompt },
+                        ...contextMessages,
+                        { role: 'user', content: message },
+                    ],
+                }),
+            );
+            return response.choices[0]?.message?.content ?? 'לא הצלחתי לענות כרגע, נסה שוב.';
+        } catch (err) {
+            this.logger.error('privateMentorChat failed', (err as Error).message);
+            return 'שגיאה זמנית — נסה שוב בעוד רגע.';
+        }
     }
 
     private mockDudeResponse(trigger: string): string {

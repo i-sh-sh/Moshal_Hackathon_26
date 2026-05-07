@@ -274,6 +274,9 @@ export interface StudentProfile {
     jargonScore: number;
     softSkillScore: number;
     detectedTerms: string[];
+    struggleAreas: string[];
+    alertLevel: 'none' | 'low' | 'medium' | 'high';
+    lastAlertMessage: string | null;
     messagesAnalyzed: number;
     lastAnalyzedAt: string | null;
     createdAt: string;

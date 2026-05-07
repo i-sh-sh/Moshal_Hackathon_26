@@ -12,7 +12,14 @@ const router = useRouter();
 const activeTab = ref<'missions' | 'board' | 'analytics' | 'chats' | 'profiles'>('missions');
 
 const teacherData = useTeacher();
-const { allProfiles, fetchAllProfiles } = useStudentProfile();
+const { 
+    allProfiles, 
+    alerts, 
+    fetchAllProfiles, 
+    fetchAlerts, 
+    markAlertRead, 
+    markAllAlertsRead 
+} = useStudentProfile();
 
 const config = useRuntimeConfig();
 const base = config.public.apiBaseUrl;
@@ -20,6 +27,7 @@ const base = config.public.apiBaseUrl;
 onMounted(() => {
     teacherData.fetchChallenges();
     teacherData.fetchTeams();
+    fetchAlerts();
 });
 
 // ── Inline role panel state ────────────────────────────────────────────
@@ -98,7 +106,7 @@ async function handleReopen(teamId: string, teamName: string) {
 const enrichedProfiles = ref<Array<StudentProfile & { name: string }>>([]);
 
 async function loadProfiles() {
-    await fetchAllProfiles();
+    await Promise.all([fetchAllProfiles(), fetchAlerts()]);
     const users = await $fetch<Array<{ id: string; name: string }>>(`${base}/users`).catch(() => []);
     const nameMap = new Map(users.map((u) => [u.id, u.name]));
     
@@ -109,6 +117,8 @@ async function loadProfiles() {
         name: nameMap.get(p.userId) ?? 'תלמיד לא מזוהה',
     }));
 }
+
+const highAlerts = computed(() => alerts.value.filter((a) => !a.isRead));
 
 watch(activeTab, (tab) => {
     if (tab === 'profiles') loadProfiles();
@@ -152,10 +162,13 @@ watch(activeTab, (tab) => {
                     💬 DUDE Chats
                 </button>
                 <button
-                    :class="['px-4 py-1.5 rounded-lg text-xs font-medium transition-colors', activeTab === 'profiles' ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-gray-200']"
+                    :class="['px-4 py-1.5 rounded-lg text-xs font-medium transition-colors relative', activeTab === 'profiles' ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-gray-200']"
                     @click="activeTab = 'profiles'"
                 >
                     🧠 פרופילים
+                    <span v-if="highAlerts.length" class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center font-bold">
+                        {{ highAlerts.length > 9 ? '9+' : highAlerts.length }}
+                    </span>
                 </button>
             </div>
         </header>
@@ -274,8 +287,10 @@ watch(activeTab, (tab) => {
             </div>
 
             <!-- 2. Board Tab -->
-            <div v-else-if="activeTab === 'board'" class="flex-1 flex flex-col">
-                <MockMondayBoard />
+            <div v-else-if="activeTab === 'board'" class="flex-1 flex flex-col p-6">
+                <div class="max-w-6xl mx-auto w-full">
+                    <MockMondayBoard />
+                </div>
             </div>
 
             <!-- 3. Analytics Tab -->
@@ -311,6 +326,32 @@ watch(activeTab, (tab) => {
                                 @click="loadProfiles"
                             >
                                 רענן נתונים
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Alerts banner -->
+                    <div v-if="highAlerts.length" class="mb-8 bg-red-50 border border-red-200 rounded-2xl p-6 flex items-start gap-4">
+                        <span class="text-2xl shrink-0">⚠️</span>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-base font-black text-red-900 mb-3">{{ highAlerts.length }} התראות הדורשות התערבות</p>
+                            <ul class="flex flex-col gap-2">
+                                <li
+                                    v-for="alert in highAlerts.slice(0, 5)"
+                                    :key="alert.id"
+                                    class="flex items-center gap-3 text-sm text-red-800 bg-white/50 p-2 rounded-lg border border-red-100"
+                                >
+                                    <span class="shrink-0 font-bold px-2 py-0.5 rounded-md bg-red-100">{{ alert.alertType === 'stuck' ? 'תקוע' : 'התראה' }}</span>
+                                    <span class="flex-1">{{ alert.message }}</span>
+                                    <button class="shrink-0 text-red-400 hover:text-red-600 transition-colors" @click="markAlertRead(alert.id)">סמן כנקרא</button>
+                                </li>
+                            </ul>
+                            <button
+                                v-if="highAlerts.length > 1"
+                                class="mt-4 text-xs text-red-600 font-bold hover:text-red-800 underline uppercase tracking-widest"
+                                @click="markAllAlertsRead"
+                            >
+                                סמן הכל כנקרא
                             </button>
                         </div>
                     </div>
