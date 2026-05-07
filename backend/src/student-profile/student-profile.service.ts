@@ -5,7 +5,7 @@
  * After each update a snapshot is saved so teachers can track progress over time.
  * Profiles are created lazily on first update.
  *
- * @version 1.00
+ * @version 1.10
  */
 
 import { Injectable, Logger } from '@nestjs/common';
@@ -18,6 +18,9 @@ export interface StudentProfile {
     jargonScore: number;
     softSkillScore: number;
     detectedTerms: string[];
+    struggleAreas: string[];
+    alertLevel: 'none' | 'low' | 'medium' | 'high';
+    lastAlertMessage: string | null;
     messagesAnalyzed: number;
     lastAnalyzedAt: string | null;
     createdAt: string;
@@ -31,6 +34,16 @@ export interface ProfileSnapshot {
     softSkillScore: number;
     detectedTerms: string[];
     snapshotAt: string;
+}
+
+export interface TeacherAlert {
+    id: string;
+    userId: string | null;
+    channelId: string | null;
+    alertType: string;
+    message: string;
+    isRead: boolean;
+    createdAt: string;
 }
 
 @Injectable()
@@ -68,11 +81,39 @@ export class StudentProfileService {
         return (data ?? []).map((r: any) => this.mapSnapshot(r));
     }
 
+    async getAlerts(onlyUnread = true): Promise<TeacherAlert[]> {
+        let query = this.supabase.db
+            .from('teacher_alerts')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(50);
+
+        if (onlyUnread) query = query.eq('is_read', false);
+
+        const { data } = await query;
+        return (data ?? []).map((r: any) => this.mapAlert(r));
+    }
+
+    async markAlertRead(alertId: string): Promise<void> {
+        await this.supabase.db
+            .from('teacher_alerts')
+            .update({ is_read: true })
+            .eq('id', alertId);
+    }
+
+    async markAllAlertsRead(): Promise<void> {
+        await this.supabase.db
+            .from('teacher_alerts')
+            .update({ is_read: true })
+            .eq('is_read', false);
+    }
+
     /**
      * Upserts profile from an AI analysis result and saves a snapshot.
      * Scores are averaged with the running weighted mean.
+     * Creates a teacher_alert if alertLevel != 'none'.
      */
-    async updateFromAnalysis(userId: string, analysis: AIAnalysisResult): Promise<void> {
+    async updateFromAnalysis(userId: string, analysis: AIAnalysisResult, channelId?: string): Promise<void> {
         const existing = await this.getProfile(userId);
         const analyzed = (existing?.messagesAnalyzed ?? 0) + 1;
 
@@ -84,10 +125,13 @@ export class StudentProfileService {
             ? (existing.softSkillScore * existing.messagesAnalyzed + analysis.softSkillScore) / analyzed
             : analysis.softSkillScore;
 
-        // Merge detected terms (unique)
         const terms = Array.from(
             new Set([...(existing?.detectedTerms ?? []), ...analysis.detectedTerms]),
         );
+
+        const struggleAreas = Array.from(
+            new Set([...(existing?.struggleAreas ?? []), ...analysis.struggleAreas]),
+        ).slice(0, 20);
 
         const now = new Date().toISOString();
 
@@ -99,6 +143,9 @@ export class StudentProfileService {
                     jargon_score: parseFloat(jargonScore.toFixed(2)),
                     soft_skill_score: parseFloat(softSkillScore.toFixed(2)),
                     detected_terms: terms,
+                    struggle_areas: struggleAreas,
+                    alert_level: analysis.alertLevel,
+                    last_alert_message: analysis.alertMessage || null,
                     messages_analyzed: analyzed,
                     last_analyzed_at: now,
                     updated_at: now,
@@ -111,7 +158,6 @@ export class StudentProfileService {
             return;
         }
 
-        // Save snapshot
         await this.supabase.db.from('profile_snapshots').insert({
             user_id: userId,
             jargon_score: parseFloat(jargonScore.toFixed(2)),
@@ -119,8 +165,19 @@ export class StudentProfileService {
             detected_terms: terms,
         });
 
+        if (analysis.alertLevel !== 'none' && analysis.alertMessage) {
+            await this.supabase.db.from('teacher_alerts').insert({
+                user_id: userId,
+                channel_id: channelId ?? null,
+                alert_type: analysis.alertLevel === 'high' ? 'stuck' : 'knowledge_gap',
+                message: analysis.alertMessage,
+                is_read: false,
+            });
+            this.logger.warn(`Alert [${analysis.alertLevel}] created for ${userId}: ${analysis.alertMessage}`);
+        }
+
         this.logger.log(
-            `Profile updated for ${userId}: jargon=${jargonScore.toFixed(1)}, soft=${softSkillScore.toFixed(1)}`,
+            `Profile updated for ${userId}: jargon=${jargonScore.toFixed(1)}, soft=${softSkillScore.toFixed(1)}, alert=${analysis.alertLevel}`,
         );
     }
 
@@ -144,6 +201,9 @@ export class StudentProfileService {
             jargonScore: parseFloat(r.jargon_score),
             softSkillScore: parseFloat(r.soft_skill_score),
             detectedTerms: r.detected_terms ?? [],
+            struggleAreas: r.struggle_areas ?? [],
+            alertLevel: r.alert_level ?? 'none',
+            lastAlertMessage: r.last_alert_message ?? null,
             messagesAnalyzed: r.messages_analyzed,
             lastAnalyzedAt: r.last_analyzed_at,
             createdAt: r.created_at,
@@ -159,6 +219,18 @@ export class StudentProfileService {
             softSkillScore: parseFloat(r.soft_skill_score),
             detectedTerms: r.detected_terms ?? [],
             snapshotAt: r.snapshot_at,
+        };
+    }
+
+    private mapAlert(r: any): TeacherAlert {
+        return {
+            id: r.id,
+            userId: r.user_id,
+            channelId: r.channel_id,
+            alertType: r.alert_type,
+            message: r.message,
+            isRead: r.is_read,
+            createdAt: r.created_at,
         };
     }
 }

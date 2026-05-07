@@ -26,6 +26,9 @@ export interface AIAnalysisResult {
     softSkillScore: number;
     detectedTerms: string[];
     suggestions: string[];
+    struggleAreas: string[];
+    alertLevel: 'none' | 'low' | 'medium' | 'high';
+    alertMessage: string;
     rawResponse: unknown;
 }
 
@@ -76,17 +79,30 @@ export class AIService {
                 softSkillScore: 0,
                 detectedTerms: [],
                 suggestions: ['AI analysis disabled — Azure OpenAI not configured'],
+                struggleAreas: [],
+                alertLevel: 'none' as const,
+                alertMessage: '',
                 rawResponse: null,
             };
         }
 
         const systemPrompt =
-            `You are an educational assistant for a hi-tech simulation platform.\n` +
-            `Analyze the provided text and return ONLY a valid JSON object (no markdown):\n` +
-            `{ "jargonScore": <0-100>, "softSkillScore": <0-100>, ` +
-            `"detectedTerms": ["t1"], "suggestions": ["s1"] }\n` +
-            `jargonScore: how much professional tech jargon is used (higher = more jargon).\n` +
-            `softSkillScore: communication clarity & soft skills (higher = better).\n` +
+            `You are an educational assistant for a hi-tech simulation platform (Tech School).\n` +
+            `Analyze the provided student messages and return ONLY a valid JSON object (no markdown):\n` +
+            `{\n` +
+            `  "jargonScore": <0-100>,\n` +
+            `  "softSkillScore": <0-100>,\n` +
+            `  "detectedTerms": ["tech term 1", ...],\n` +
+            `  "suggestions": ["pedagogical suggestion 1", ...],\n` +
+            `  "struggleAreas": ["specific topic/task the student struggled with", ...],\n` +
+            `  "alertLevel": "none|low|medium|high",\n` +
+            `  "alertMessage": "Brief Hebrew sentence for the teacher about this student"\n` +
+            `}\n` +
+            `jargonScore: professional tech jargon usage (higher = more).\n` +
+            `softSkillScore: communication clarity & collaboration (higher = better).\n` +
+            `struggleAreas: specific topics, tools, or tasks where student showed confusion or repeated questions. Empty array if none.\n` +
+            `alertLevel: none=all good, low=minor confusion, medium=needs check-in, high=clearly stuck or frustrated.\n` +
+            `alertMessage: if alertLevel != none, write a short Hebrew sentence for the teacher (e.g. "התלמיד מתקשה עם ייצוא STL"). Otherwise empty string.\n` +
             `Context: ${JSON.stringify(request.context ?? {})}`;
 
         try {
@@ -107,6 +123,9 @@ export class AIService {
                 softSkillScore: parsed.softSkillScore ?? 0,
                 detectedTerms: parsed.detectedTerms ?? [],
                 suggestions: parsed.suggestions ?? [],
+                struggleAreas: parsed.struggleAreas ?? [],
+                alertLevel: parsed.alertLevel ?? 'none',
+                alertMessage: parsed.alertMessage ?? '',
                 rawResponse: parsed,
             };
         } catch (err) {
@@ -116,6 +135,9 @@ export class AIService {
                 softSkillScore: 0,
                 detectedTerms: [],
                 suggestions: ['AI analysis temporarily unavailable'],
+                struggleAreas: [],
+                alertLevel: 'none' as const,
+                alertMessage: '',
                 rawResponse: null,
             };
         }

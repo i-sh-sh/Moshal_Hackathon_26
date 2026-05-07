@@ -1,4 +1,4 @@
-import type { StudentProfile, ProfileSnapshot } from '~/types/types';
+import type { StudentProfile, ProfileSnapshot, TeacherAlert } from '~/types/types';
 
 export function useStudentProfile() {
     const config = useRuntimeConfig();
@@ -7,6 +7,7 @@ export function useStudentProfile() {
     const profile = ref<StudentProfile | null>(null);
     const snapshots = ref<ProfileSnapshot[]>([]);
     const allProfiles = ref<StudentProfile[]>([]);
+    const alerts = ref<TeacherAlert[]>([]);
     const loading = ref(false);
 
     async function fetchMyProfile(userId: string): Promise<void> {
@@ -35,6 +36,24 @@ export function useStudentProfile() {
         }
     }
 
+    async function fetchAlerts(): Promise<void> {
+        try {
+            alerts.value = await $fetch<TeacherAlert[]>(`${base}/student-profiles/alerts`);
+        } catch {
+            alerts.value = [];
+        }
+    }
+
+    async function markAlertRead(alertId: string): Promise<void> {
+        await $fetch(`${base}/student-profiles/alerts/${alertId}/read`, { method: 'PATCH' }).catch(() => null);
+        alerts.value = alerts.value.filter((a) => a.id !== alertId);
+    }
+
+    async function markAllAlertsRead(): Promise<void> {
+        await $fetch(`${base}/student-profiles/alerts/read-all`, { method: 'PATCH' }).catch(() => null);
+        alerts.value = [];
+    }
+
     async function triggerAnalysis(channelId: string): Promise<{ analyzed: number; summary: string }> {
         return $fetch(`${base}/dude/channels/${channelId}/analyze`, { method: 'POST' });
     }
@@ -43,10 +62,14 @@ export function useStudentProfile() {
         profile: readonly(profile),
         snapshots: readonly(snapshots),
         allProfiles: readonly(allProfiles),
+        alerts: readonly(alerts),
         loading: readonly(loading),
         fetchMyProfile,
         fetchSnapshots,
         fetchAllProfiles,
+        fetchAlerts,
+        markAlertRead,
+        markAllAlertsRead,
         triggerAnalysis,
     };
 }
