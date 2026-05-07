@@ -5,6 +5,7 @@ import { useUser } from '~/composables/useUser';
 import { useLeaderboard } from '~/composables/useLeaderboard';
 import { useChat } from '~/composables/useChat';
 import { useStudentProfile } from '~/composables/useStudentProfile';
+import { usePrivateDude } from '~/composables/usePrivateDude';
 
 useHead({ title: 'TechSchool — לוח תלמיד' });
 
@@ -198,8 +199,18 @@ const {
 // ── Student profile ───────────────────────────────────────────────────────────
 const { profile: myProfile, snapshots: mySnapshots, fetchMyProfile, fetchSnapshots } = useStudentProfile();
 
+// ── Private DUDE mentor chat ──────────────────────────────────────────────────
+const {
+    messages: dudeMessages,
+    sending: dudeSending,
+    sendMessage: dudeSendMessage,
+} = usePrivateDude(
+    computed(() => user.value?.id ?? ''),
+    computed(() => user.value?.name ?? 'תלמיד'),
+);
+
 // ── Tabs ──────────────────────────────────────────────────────────────────────
-const activeTab = ref<'tasks' | 'leaderboard' | 'chat' | 'progress'>('tasks');
+const activeTab = ref<'tasks' | 'leaderboard' | 'chat' | 'mentor' | 'progress'>('tasks');
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 onMounted(async () => {
@@ -350,6 +361,9 @@ function onQuizSubmitted(r: { score: number; total: number; learningGain: number
                 <button :class="['px-4 py-1.5 rounded-lg text-sm font-medium transition-colors', activeTab === 'chat' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-500 hover:text-gray-700']" @click="activeTab = 'chat'">
                     💬 צ'אט DUDE
                 </button>
+                <button :class="['px-4 py-1.5 rounded-lg text-sm font-medium transition-colors', activeTab === 'mentor' ? 'bg-white shadow-sm text-indigo-700' : 'text-gray-500 hover:text-gray-700']" @click="activeTab = 'mentor'">
+                    🤖 מנטור פרטי
+                </button>
                 <button :class="['px-4 py-1.5 rounded-lg text-sm font-medium transition-colors', activeTab === 'progress' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-500 hover:text-gray-700']" @click="activeTab = 'progress'">
                     📈 ההתקדמות שלי
                 </button>
@@ -437,6 +451,18 @@ function onQuizSubmitted(r: { score: number; total: number; learningGain: number
                     :sending="chatSending"
                     :current-user-id="user?.id ?? ''"
                     @send="sendMessage"
+                />
+            </div>
+
+            <!-- ── Mentor (private DUDE) tab ─────────────────────────── -->
+            <div v-if="activeTab === 'mentor'" class="flex flex-col" style="height: 580px">
+                <ChatChannel
+                    class="h-full"
+                    channel-name="DUDE — מנטור אישי 🤖"
+                    :messages="dudeMessages"
+                    :sending="dudeSending"
+                    :current-user-id="user?.id ?? ''"
+                    @send="dudeSendMessage"
                 />
             </div>
 

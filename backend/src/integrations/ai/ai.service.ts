@@ -277,6 +277,54 @@ ${depthInstruction}
         return this.analyze({ text: combined, context: { userId, source: 'group_chat' } });
     }
 
+    /**
+     * Private 1-on-1 mentor chat with DUDE.
+     * Answers freely but stays within Tech School challenge context.
+     */
+    async privateMentorChat(
+        message: string,
+        history: { role: 'user' | 'assistant'; content: string }[],
+    ): Promise<string> {
+        if (!this.client) {
+            return `[DUDE Mock] שלום! אני DUDE המנטור הפרטי שלך. שאל/י אותי כל דבר שקשור לאתגרים, Fusion 360, תפקידי הצוות, תהליכי עבודה ועוד. (set AZURE_OPENAI keys for real responses)`;
+        }
+
+        const systemPrompt =
+            `אתה DUDE — מנטור אישי וחכם בפלטפורמת Tech School לנוער.\n` +
+            `אתה מנהל שיחה פרטית עם תלמיד/ה אחד/ת.\n` +
+            `תוכל לדון בכל נושא שקשור לאתגרים הטכנולוגיים:\n` +
+            `  • Fusion 360 — עיצוב תלת-מימד, STL, הדפסה, מיפוי\n` +
+            `  • תפקידי הצוות — PM, QA, Dev, Hardware\n` +
+            `  • תהליכי עבודה — Agile, ספרינטים, ביקורת קוד, תיעוד\n` +
+            `  • מיומנויות רכות — תקשורת, ניהול זמן, עבודת צוות\n` +
+            `  • שאלות טכניות כלליות בגבולות האתגרים\n` +
+            `אל תדון בנושאים שאינם קשורים ל-Tech School.\n` +
+            `סגנון: ידידותי, מעודד, קצר (עד 4 משפטים). שלב עברית ואנגלית טכנית.`;
+
+        const contextMessages = history.slice(-12).map((m) => ({
+            role: m.role,
+            content: m.content,
+        }));
+
+        try {
+            const response = await this.gatekeeper.execute('azure', () =>
+                this.client!.chat.completions.create({
+                    model: this.deployment,
+                    max_tokens: 300,
+                    messages: [
+                        { role: 'system', content: systemPrompt },
+                        ...contextMessages,
+                        { role: 'user', content: message },
+                    ],
+                }),
+            );
+            return response.choices[0]?.message?.content ?? 'לא הצלחתי לענות כרגע, נסה שוב.';
+        } catch (err) {
+            this.logger.error('privateMentorChat failed', (err as Error).message);
+            return 'שגיאה זמנית — נסה שוב בעוד רגע.';
+        }
+    }
+
     private mockDudeResponse(trigger: string): string {
         if (trigger.endsWith('?')) {
             return '[DUDE Mock] שאלה מעולה! נסו לחשוב על הכלים שלמדתם בספרינט הנוכחי. (set AZURE_OPENAI keys for real responses)';

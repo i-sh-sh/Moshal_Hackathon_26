@@ -1,4 +1,24 @@
-import { Body, Controller, HttpCode, Param, Post } from '@nestjs/common';
+import { Body, Controller, HttpCode, IsString, Param, Post } from '@nestjs/common';
+import { IsArray, IsIn, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
+
+class PrivateChatHistoryItem {
+    @IsIn(['user', 'assistant'])
+    role!: 'user' | 'assistant';
+
+    @IsString()
+    content!: string;
+}
+
+class PrivateChatDto {
+    @IsString()
+    message!: string;
+
+    @IsArray()
+    @ValidateNested({ each: true })
+    @Type(() => PrivateChatHistoryItem)
+    history!: PrivateChatHistoryItem[];
+}
 import { DudeService } from './dude.service';
 import { ChatService } from '../chat/chat.service';
 import { SendMessageDto } from '../chat/dto/send-message.dto';
@@ -34,5 +54,20 @@ export class DudeController {
     @HttpCode(200)
     analyzeChannel(@Param('channelId') channelId: string) {
         return this.dude.analyzeChannel(channelId);
+    }
+
+    /**
+     * POST /dude/private/:userId/chat
+     * Private 1-on-1 mentor chat with DUDE.
+     * History is managed client-side; no DB persistence.
+     */
+    @Post('private/:userId/chat')
+    @HttpCode(200)
+    async privateChat(
+        @Param('userId') userId: string,
+        @Body() dto: PrivateChatDto,
+    ) {
+        const reply = await this.dude.privateMentorChat(userId, dto.message, dto.history);
+        return { reply };
     }
 }

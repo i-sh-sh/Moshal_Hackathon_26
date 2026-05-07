@@ -57,6 +57,17 @@ export class DudeService {
     }
 
     /**
+     * Private 1-on-1 chat with DUDE for a single student.
+     */
+    async privateMentorChat(
+        userId: string,
+        message: string,
+        history: { role: 'user' | 'assistant'; content: string }[],
+    ): Promise<string> {
+        return this.ai.privateMentorChat(message, history);
+    }
+
+    /**
      * Full channel analysis — called by teacher or on idle trigger.
      * Updates every participant's student profile and logs the analysis.
      */
