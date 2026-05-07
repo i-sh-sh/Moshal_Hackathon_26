@@ -1,5 +1,5 @@
-import { Body, Controller, HttpCode, IsString, Param, Post } from '@nestjs/common';
-import { IsArray, IsIn, ValidateNested } from 'class-validator';
+import { Body, Controller, HttpCode, Param, Post } from '@nestjs/common';
+import { IsArray, IsIn, IsString, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 
 class PrivateChatHistoryItem {
