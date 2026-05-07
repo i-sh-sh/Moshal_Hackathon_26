@@ -1,3 +1,9 @@
+/**
+ * Monday.com integration module.
+ *
+ * @version 1.10
+ */
+
 import { Module } from '@nestjs/common';
 import { MondayApiService } from './monday-api.service';
 
