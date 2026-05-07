@@ -262,7 +262,7 @@ onUnmounted(() => { if (tickTimer) clearInterval(tickTimer); });
 <template>
     <div class="min-h-screen bg-gray-50 flex" dir="rtl">
         <!-- Right cyan TS sidebar (first in DOM = right side in RTL flex) -->
-        <TechSchoolSidebar school-label="School Test 01" :on-logout="handleLogout" />
+        <TechSchoolSidebar school-label="School Test 01" :on-logout="handleLogout" :hide-mentor-bot="true" />
 
         <!-- Page content (fills the rest, on the left in RTL flex) -->
         <div class="flex-1 flex flex-col min-w-0">

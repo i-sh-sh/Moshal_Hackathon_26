@@ -9,6 +9,7 @@ defineProps<{
     schoolLabel?: string;
     onLogout?: () => void;
     teamMembers?: TeamMember[];
+    hideMentorBot?: boolean;
 }>();
 
 const TS_LOGO_URL =
@@ -115,7 +116,7 @@ function initials(name: string): string {
         </div>
 
         <!-- Bot avatar -->
-        <div class="mt-4 flex flex-col items-center gap-2">
+        <div v-if="!hideMentorBot" class="mt-4 flex flex-col items-center gap-2">
             <div class="w-16 h-16 rounded-2xl bg-yellow-300 flex items-center justify-center text-3xl shadow-md">
                 🤖
             </div>

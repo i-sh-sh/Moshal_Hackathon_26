@@ -33,7 +33,7 @@ onMounted(() => {
             <div class="bg-gradient-to-r from-[#3CC2EE] to-cyan-500 px-6 py-5 flex items-start justify-between gap-3">
                 <div>
                     <p class="text-white/80 text-xs font-semibold uppercase tracking-wide">מה התפקיד שלי?</p>
-                    <h2 class="text-white text-xl font-extrabold mt-0.5">{{ info?.title ?? roleLabel }}</h2>
+                    <h2 class="text-white text-xl font-extrabold mt-0.5">Junior {{ info?.title ?? roleLabel }}</h2>
                     <p v-if="info?.subtitle" class="text-white/80 text-sm mt-0.5">{{ info.subtitle }}</p>
                 </div>
                 <button class="text-white/60 hover:text-white text-xl leading-none mt-0.5 shrink-0" @click="emit('close')">✕</button>
@@ -46,6 +46,15 @@ onMounted(() => {
                 <p v-if="!info" class="text-sm text-gray-500">אין מידע זמין לתפקיד זה.</p>
 
                 <template v-else>
+                    <!-- Junior callout -->
+                    <div class="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex gap-2">
+                        <span class="text-amber-500 text-base shrink-0 mt-0.5">⭐</span>
+                        <p class="text-sm text-amber-800 leading-snug">
+                            <span class="font-bold">ג׳וניור</span> אומר שאתה בתחילת הדרך בתפקיד הזה.
+                            לא מצופה ממך לדעת הכול מראש — המטרה היא ללמוד, לשאול שאלות, להתנסות ולעזור לצוות לפי ההנחיות.
+                        </p>
+                    </div>
+
                     <!-- Responsibility bullets -->
                     <div>
                         <p class="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">מה אתה אחראי?</p>

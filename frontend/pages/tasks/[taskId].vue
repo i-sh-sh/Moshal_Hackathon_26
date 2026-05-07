@@ -89,23 +89,7 @@ const roleChipColors: Record<string, string> = {
 // ── Role info popup ───────────────────────────────────────────────────────────
 const roleInfoOpen = ref(false);
 
-function roleInfoShownKey(): string {
-    const uid = user.value?.id ?? 'anon';
-    const tid = route.params.taskId as string;
-    const role = task.value?.assignedRole ?? 'unknown';
-    return `roleInfoShown:${uid}:${tid}:${role}`;
-}
-
 function openRoleInfo() {
-    roleInfoOpen.value = true;
-}
-
-function openRoleInfoOnce() {
-    if (typeof localStorage === 'undefined') return;
-    try {
-        if (localStorage.getItem(roleInfoShownKey())) return;
-        localStorage.setItem(roleInfoShownKey(), '1');
-    } catch { /* ignore */ }
     roleInfoOpen.value = true;
 }
 
@@ -125,10 +109,7 @@ function onQuizSubmitted(r: { score: number; total: number; learningGain: number
     if (wasPreQuiz) preQuizDone.value = true;
     else postQuizDone.value = true;
     quizModal.value.open = false;
-    if (wasPreQuiz) {
-        // Show role explanation once after the before-task quiz
-        nextTick(() => openRoleInfoOnce());
-    }
+    if (wasPreQuiz) roleInfoOpen.value = true;
     showToast(
         r.learningGain !== null
             ? `Quiz done — score ${r.score}/${r.total} (gain ${r.learningGain >= 0 ? '+' : ''}${r.learningGain})`
@@ -202,7 +183,7 @@ const nextStepId = computed(() => DEFAULT_STEPS.find((s) => !completed.value.has
 
 <template>
     <div class="min-h-screen bg-gray-50 flex" dir="rtl">
-        <TechSchoolSidebar school-label="School Test 01" :team-members="teamMembers" />
+        <TechSchoolSidebar school-label="School Test 01" :team-members="teamMembers" :hide-mentor-bot="true" />
 
         <div class="flex-1 flex flex-col min-w-0">
         <header class="bg-white border-b border-gray-200 sticky top-0 z-30">
