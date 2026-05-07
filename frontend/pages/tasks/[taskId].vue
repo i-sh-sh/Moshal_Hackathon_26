@@ -23,6 +23,7 @@ const { tasks, loading, fetchTasks } = useTasks(
 
 interface TeamDetail {
     id: string;
+    name: string;
     current_challenge_id: string | null;
     is_completed: boolean;
 }
@@ -197,6 +198,7 @@ const {
     computed(() => user.value?.currentTeamId ?? ''),
     computed(() => user.value?.id ?? ''),
     computed(() => user.value?.name ?? 'תלמיד'),
+    computed(() => team.value?.name ?? ''),
 );
 
 const {

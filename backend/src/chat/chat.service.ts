@@ -171,39 +171,49 @@ export class ChatService {
     // ── Private DUDE messages ──────────────────────────────────────────────────
 
     async savePrivateMessage(userId: string, role: 'student' | 'dude', content: string): Promise<void> {
-        await this.supabase.db
+        const { error } = await this.supabase.db
             .from('private_dude_messages')
             .insert({ user_id: userId, role, content });
+        if (error) this.logger.warn('savePrivateMessage failed (migration 007 pending?)', error.message);
     }
 
     async getPrivateMessages(userId: string, limit = 100): Promise<{ id: string; role: 'student' | 'dude'; content: string; createdAt: string }[]> {
-        const { data } = await this.supabase.db
+        const { data, error } = await this.supabase.db
             .from('private_dude_messages')
             .select('id, role, content, created_at')
             .eq('user_id', userId)
             .order('created_at', { ascending: true })
             .limit(limit);
 
+        if (error) {
+            this.logger.warn('getPrivateMessages failed (migration 007 pending?)', error.message);
+            return [];
+        }
         return (data ?? []).map((r: any) => ({ id: r.id, role: r.role, content: r.content, createdAt: r.created_at }));
     }
 
     async getUnanalyzedPrivateMessages(userId: string): Promise<{ id: string; role: 'student' | 'dude'; content: string }[]> {
-        const { data } = await this.supabase.db
+        const { data, error } = await this.supabase.db
             .from('private_dude_messages')
             .select('id, role, content')
             .eq('user_id', userId)
             .eq('analyzed', false)
             .order('created_at', { ascending: true });
 
+        if (error) {
+            this.logger.warn('getUnanalyzedPrivateMessages failed (migration 007 pending?)', error.message);
+            return [];
+        }
         return (data ?? []).map((r: any) => ({ id: r.id, role: r.role, content: r.content }));
     }
 
     async markPrivateMessagesAnalyzed(userId: string): Promise<void> {
-        await this.supabase.db
+        const { error } = await this.supabase.db
             .from('private_dude_messages')
             .update({ analyzed: true })
             .eq('user_id', userId)
             .eq('analyzed', false);
+        if (error) this.logger.warn('markPrivateMessagesAnalyzed failed', error.message);
     }
 
     private mapChannel(r: any): ChatChannel {

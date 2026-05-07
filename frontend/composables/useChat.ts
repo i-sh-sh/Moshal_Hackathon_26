@@ -1,6 +1,6 @@
 import type { ChatChannel, ChatMessage } from '~/types/types';
 
-export function useChat(teamId: Ref<string>, userId: Ref<string>, userName: Ref<string>) {
+export function useChat(teamId: Ref<string>, userId: Ref<string>, userName: Ref<string>, teamName: Ref<string> = ref('')) {
     const config = useRuntimeConfig();
     const base = config.public.apiBaseUrl;
 
@@ -24,7 +24,7 @@ export function useChat(teamId: Ref<string>, userId: Ref<string>, userName: Ref<
                 channel.value = existing;
             } else {
                 channel.value = await $fetch<ChatChannel>(
-                    `${base}/chat/teams/${teamId.value}/channel?teamName=Team`,
+                    `${base}/chat/teams/${teamId.value}/channel?teamName=${encodeURIComponent(teamName.value || teamId.value)}`,
                     { method: 'POST' },
                 );
             }
