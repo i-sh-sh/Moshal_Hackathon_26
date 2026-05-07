@@ -28,6 +28,7 @@ onMounted(() => {
     teacherData.fetchChallenges();
     teacherData.fetchTeams();
     fetchAlerts();
+    loadProfiles();
 });
 
 // ── Inline role panel state ────────────────────────────────────────────
