@@ -159,14 +159,14 @@ async function seed(): Promise<void> {
         // ── 4. Users (8 students + 1 teacher + 1 admin, all with same hash) ──
         log('users...');
         const { error: e4 } = await db.from('users').upsert([
-            { id: ID.user.yael,    name: 'Yael Mizrahi',   email: 'yael@techschool.demo',    password_hash: hash, account_type: 'student', auth_provider: 'local', current_team_id: ID.team.alpha, current_role: 'editor',   total_active_time: 3240, is_active: true },
+            { id: ID.user.yael,    name: 'Yael Mizrahi',   email: 'yael@techschool.demo',    password_hash: hash, account_type: 'student', auth_provider: 'local', current_team_id: ID.team.alpha, current_role: 'pm',       total_active_time: 3240, is_active: true },
             { id: ID.user.david,   name: 'David Cohen',    email: 'david@techschool.demo',   password_hash: hash, account_type: 'student', auth_provider: 'local', current_team_id: ID.team.alpha, current_role: 'qa',       total_active_time: 2880, is_active: true },
-            { id: ID.user.noa,     name: 'Noa Ben-David',  email: 'noa@techschool.demo',     password_hash: hash, account_type: 'student', auth_provider: 'local', current_team_id: ID.team.alpha, current_role: 'designer', total_active_time: 4200, is_active: true },
-            { id: ID.user.ariel,   name: 'Ariel Levy',     email: 'ariel@techschool.demo',   password_hash: hash, account_type: 'student', auth_provider: 'local', current_team_id: ID.team.alpha, current_role: 'printer',  total_active_time: 3600, is_active: true },
-            { id: ID.user.maya,    name: 'Maya Shapiro',   email: 'maya@techschool.demo',    password_hash: hash, account_type: 'student', auth_provider: 'local', current_team_id: ID.team.beta,  current_role: 'editor',   total_active_time: 2700, is_active: true },
+            { id: ID.user.noa,     name: 'Noa Ben-David',  email: 'noa@techschool.demo',     password_hash: hash, account_type: 'student', auth_provider: 'local', current_team_id: ID.team.alpha, current_role: 'dev',      total_active_time: 4200, is_active: true },
+            { id: ID.user.ariel,   name: 'Ariel Levy',     email: 'ariel@techschool.demo',   password_hash: hash, account_type: 'student', auth_provider: 'local', current_team_id: ID.team.alpha, current_role: 'hardware', total_active_time: 3600, is_active: true },
+            { id: ID.user.maya,    name: 'Maya Shapiro',   email: 'maya@techschool.demo',    password_hash: hash, account_type: 'student', auth_provider: 'local', current_team_id: ID.team.beta,  current_role: 'pm',       total_active_time: 2700, is_active: true },
             { id: ID.user.omer,    name: 'Omer Peretz',    email: 'omer@techschool.demo',    password_hash: hash, account_type: 'student', auth_provider: 'local', current_team_id: ID.team.beta,  current_role: 'qa',       total_active_time: 3100, is_active: true },
-            { id: ID.user.lior,    name: 'Lior Katz',      email: 'lior@techschool.demo',    password_hash: hash, account_type: 'student', auth_provider: 'local', current_team_id: ID.team.beta,  current_role: 'designer', total_active_time: 2400, is_active: true },
-            { id: ID.user.tal,     name: 'Tal Friedman',   email: 'tal@techschool.demo',     password_hash: hash, account_type: 'student', auth_provider: 'local', current_team_id: ID.team.beta,  current_role: 'printer',  total_active_time: 3900, is_active: true },
+            { id: ID.user.lior,    name: 'Lior Katz',      email: 'lior@techschool.demo',    password_hash: hash, account_type: 'student', auth_provider: 'local', current_team_id: ID.team.beta,  current_role: 'dev',      total_active_time: 2400, is_active: true },
+            { id: ID.user.tal,     name: 'Tal Friedman',   email: 'tal@techschool.demo',     password_hash: hash, account_type: 'student', auth_provider: 'local', current_team_id: ID.team.beta,  current_role: 'hardware', total_active_time: 3900, is_active: true },
             { id: ID.user.teacher, name: 'Teacher Demo',   email: 'teacher@techschool.demo', password_hash: hash, account_type: 'teacher', auth_provider: 'local', current_team_id: null,          current_role: null,       total_active_time: 0,    is_active: true },
             { id: ID.user.admin,   name: 'Admin Demo',     email: 'admin@techschool.demo',   password_hash: hash, account_type: 'admin',   auth_provider: 'local', current_team_id: null,          current_role: null,       total_active_time: 0,    is_active: true },
         ], { onConflict: 'id' });
@@ -181,13 +181,13 @@ async function seed(): Promise<void> {
 
         const { error: e5 } = await db.from('tasks').upsert([
             // Team Alpha — Puzzle mission
-            { id: ID.task.a_designer, sprint_id: ID.sprint.puzzle_basic, team_id: ID.team.alpha, assigned_role: 'designer',
+            { id: ID.task.a_designer, sprint_id: ID.sprint.puzzle_basic, team_id: ID.team.alpha, assigned_role: 'dev',
               title: 'מידול פאזל בסיסי ב-Fusion 360',
               description: 'עצבו פאזל 3-4 חלקים, גודל 12ס"מ, גובה 10מ"מ. סימוני מגע על כל חלק.',
               status: 'approved', submission_url: 'https://drive.google.com/demo/puzzle-design-alpha',
               submitted_by: ID.user.noa, reviewed_by_qa: ID.user.david, reviewed_by_pm: ID.user.yael,
               qa_checklist: qaA, qa_notes: 'מידות תקינות, סימוני מגע ברורים.', pm_notes: 'מוכן להדפסה.' },
-            { id: ID.task.a_editor, sprint_id: ID.sprint.puzzle_basic, team_id: ID.team.alpha, assigned_role: 'editor',
+            { id: ID.task.a_editor, sprint_id: ID.sprint.puzzle_basic, team_id: ID.team.alpha, assigned_role: 'pm',
               title: 'הכנת קובץ Slicer + תמיכות',
               description: 'layer 0.2מ"מ, infill 20%, אופטימיזציה לזמן הדפסה.',
               status: 'teacher_review', submission_url: 'https://drive.google.com/demo/puzzle-slicer-alpha',
@@ -198,18 +198,18 @@ async function seed(): Promise<void> {
               description: 'אמת מרווח 0.2-0.4מ"מ בכל חיבור. בדוק שניתן לזהות חלקים לפי מגע בלבד.',
               status: 'qa_review', submission_url: 'https://drive.google.com/demo/puzzle-qa-alpha',
               submitted_by: ID.user.david },
-            { id: ID.task.a_printer, sprint_id: ID.sprint.puzzle_basic, team_id: ID.team.alpha, assigned_role: 'printer',
+            { id: ID.task.a_printer, sprint_id: ID.sprint.puzzle_basic, team_id: ID.team.alpha, assigned_role: 'hardware',
               title: 'הדפסת הפאזל + הרכבה בעיניים מכוסות',
               description: 'הדפיסו את הפאזל. נסו להרכיב אותו בעיניים מכוסות. תעדו תוצאות.',
               status: 'pending' },
             // Team Beta — Puzzle mission
-            { id: ID.task.b_designer, sprint_id: ID.sprint.puzzle_basic, team_id: ID.team.beta, assigned_role: 'designer',
+            { id: ID.task.b_designer, sprint_id: ID.sprint.puzzle_basic, team_id: ID.team.beta, assigned_role: 'dev',
               title: 'פאזל חיה מוכרת',
               description: 'עצבו פאזל 4-5 חלקים בצורת חיה (כלב/חתול). גודל 14ס"מ, גובה 12מ"מ.',
               status: 'approved', submission_url: 'https://drive.google.com/demo/puzzle-design-beta',
               submitted_by: ID.user.lior, reviewed_by_qa: ID.user.omer, reviewed_by_pm: ID.user.maya,
               qa_checklist: qaC, pm_notes: 'יצירתי ונגיש למגע.' },
-            { id: ID.task.b_editor, sprint_id: ID.sprint.puzzle_basic, team_id: ID.team.beta, assigned_role: 'editor',
+            { id: ID.task.b_editor, sprint_id: ID.sprint.puzzle_basic, team_id: ID.team.beta, assigned_role: 'pm',
               title: 'Slicer + תמיכות ל-overhangs',
               description: 'בדוק זוויות overhang, הוסף תמיכות נדרשות, חישב זמן הדפסה.',
               status: 'pm_review', submission_url: 'https://drive.google.com/demo/puzzle-slicer-beta',
@@ -219,39 +219,40 @@ async function seed(): Promise<void> {
               title: 'בדיקה איכותית + בדיקת מגע',
               description: 'אמת שכל חלק מסומן לכיוון. אין שני חלקים זהים במגע.',
               status: 'pending' },
-            { id: ID.task.b_printer, sprint_id: ID.sprint.puzzle_basic, team_id: ID.team.beta, assigned_role: 'printer',
+            { id: ID.task.b_printer, sprint_id: ID.sprint.puzzle_basic, team_id: ID.team.beta, assigned_role: 'hardware',
               title: 'הדפסה + תיעוד',
               description: 'הדפס בשני צבעים שונים. צלם תהליך + תוצר סופי.',
               status: 'pending' },
         ], { onConflict: 'id' });
         if (e5) throw new Error(`tasks: ${e5.message}`);
 
-        // ── 6. Quiz question bank (role-knowledge for designer/editor/qa/printer) ──
+        // ── 6. Quiz question bank — role-knowledge for pm/qa/dev/hardware ──
+        // (Display labels: pm→Editor, qa→QA, dev→Designer, hardware→Printer)
         log('quiz questions...');
         const roleQuestions: {
             scope: 'role';
-            role: 'designer' | 'editor' | 'qa' | 'printer';
+            role: 'pm' | 'qa' | 'dev' | 'hardware';
             prompt: string;
             options: string[];
             correct_index: number;
         }[] = [
-            // designer
-            { scope: 'role', role: 'designer', prompt: 'In Fusion 360, which feature lets you carve material out of a body?',
+            // dev = Designer
+            { scope: 'role', role: 'dev', prompt: 'In Fusion 360, which feature lets you carve material out of a body?',
               options: ['Extrude — Join', 'Extrude — Cut', 'Sketch — Trim', 'Patch'], correct_index: 1 },
-            { scope: 'role', role: 'designer', prompt: 'A "prototype" in 3D-print missions is...',
+            { scope: 'role', role: 'dev', prompt: 'A "prototype" in 3D-print missions is...',
               options: ['The final, polished part', 'A first version of a model used to test the design', 'A presentation slide', 'A bill of materials'], correct_index: 1 },
-            { scope: 'role', role: 'designer', prompt: 'Minimum recommended wall thickness for FDM prints is roughly...',
+            { scope: 'role', role: 'dev', prompt: 'Minimum recommended wall thickness for FDM prints is roughly...',
               options: ['0.1 mm', '1.2 mm', '5 mm', '10 mm'], correct_index: 1 },
-            { scope: 'role', role: 'designer', prompt: 'Which file format is the standard 3D-print mesh export?',
+            { scope: 'role', role: 'dev', prompt: 'Which file format is the standard 3D-print mesh export?',
               options: ['PNG', 'STL', 'CSV', 'PSD'], correct_index: 1 },
-            // editor (slicer / pre-print prep)
-            { scope: 'role', role: 'editor', prompt: 'In a slicer, "infill" controls...',
+            // pm = Editor (slicer / pre-print prep + review)
+            { scope: 'role', role: 'pm', prompt: 'In a slicer, "infill" controls...',
               options: ['Print speed', 'How dense the inside of the part is', 'The bed temperature', 'The filament colour'], correct_index: 1 },
-            { scope: 'role', role: 'editor', prompt: 'A typical FDM layer height for a balanced print is...',
+            { scope: 'role', role: 'pm', prompt: 'A typical FDM layer height for a balanced print is...',
               options: ['0.02 mm', '0.20 mm', '2.00 mm', '20 mm'], correct_index: 1 },
-            { scope: 'role', role: 'editor', prompt: 'Why generate "supports" in a slicer?',
+            { scope: 'role', role: 'pm', prompt: 'Why generate "supports" in a slicer?',
               options: ['To make the model heavier', 'To hold up overhangs and bridges during printing', 'To save filament', 'To translate text'], correct_index: 1 },
-            { scope: 'role', role: 'editor', prompt: 'What is "G-code"?',
+            { scope: 'role', role: 'pm', prompt: 'What is "G-code"?',
               options: ['A grading rubric', 'Instructions the printer executes layer by layer', 'A type of plastic', 'A photo format'], correct_index: 1 },
             // qa
             { scope: 'role', role: 'qa', prompt: 'Submitting work "for QA" means you are asking someone to...',
@@ -262,14 +263,14 @@ async function seed(): Promise<void> {
               options: ['Pending review', 'Sent back for fixes', 'Signed off as complete', 'Cancelled'], correct_index: 2 },
             { scope: 'role', role: 'qa', prompt: 'If a part fails dimensional check, the right action is to...',
               options: ['Approve anyway', 'Mark needs-fix and explain in the notes', 'Delete the team', 'Ignore it'], correct_index: 1 },
-            // printer
-            { scope: 'role', role: 'printer', prompt: 'Bed adhesion failures most often happen because...',
+            // hardware = Printer
+            { scope: 'role', role: 'hardware', prompt: 'Bed adhesion failures most often happen because...',
               options: ['The filament is too cold and the bed is not level/clean', 'The wifi is slow', 'The model has too many polygons', 'Supports are disabled'], correct_index: 0 },
-            { scope: 'role', role: 'printer', prompt: 'What is "stringing" on a 3D print?',
+            { scope: 'role', role: 'hardware', prompt: 'What is "stringing" on a 3D print?',
               options: ['Thin plastic threads between features caused by oozing', 'Audio cables on the printer', 'A type of infill', 'A status code'], correct_index: 0 },
-            { scope: 'role', role: 'printer', prompt: 'You should level the print bed...',
+            { scope: 'role', role: 'hardware', prompt: 'You should level the print bed...',
               options: ['Never — it is automatic always', 'When prints start failing or the printer is moved', 'Only on day 1', 'Once a year'], correct_index: 1 },
-            { scope: 'role', role: 'printer', prompt: 'Which is the safer first step when a print fails mid-way?',
+            { scope: 'role', role: 'hardware', prompt: 'Which is the safer first step when a print fails mid-way?',
               options: ['Hit the printer', 'Pause, inspect, and re-slice if needed', 'Run it again identically and hope', 'Delete the file'], correct_index: 1 },
         ];
 
@@ -300,8 +301,8 @@ async function seed(): Promise<void> {
         log('Accounts:');
         log('  admin@techschool.demo    — admin (user CRUD)');
         log('  teacher@techschool.demo  — teacher');
-        log('  yael, david, noa, ariel  — Team Alpha (editor/qa/designer/printer)');
-        log('  maya, omer, lior, tal    — Team Beta  (editor/qa/designer/printer)');
+        log('  yael, david, noa, ariel  — Team Alpha (pm/qa/dev/hardware → Editor/QA/Designer/Printer)');
+        log('  maya, omer, lior, tal    — Team Beta  (pm/qa/dev/hardware → Editor/QA/Designer/Printer)');
     } catch (e) {
         err(`Seed failed: ${(e as Error).message}`);
         process.exit(1);

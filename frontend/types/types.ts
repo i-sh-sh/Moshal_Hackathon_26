@@ -2,32 +2,35 @@
 // TeamSprintUp — Shared Domain Types
 // ============================================================
 
-export type StudentRole = 'designer' | 'editor' | 'qa' | 'printer';
+// Internal role keys stay as the original DB taxonomy. Display labels
+// ("Designer", "Editor", "QA", "Printer") are mapped via ROLE_LABELS below.
+export type StudentRole = 'pm' | 'qa' | 'dev' | 'hardware';
 
 // Kept as alias so existing code (Task.assignedRole, etc.) still type-checks.
 export type UserRole = StudentRole;
 
-export const ROLE_PRIORITY: StudentRole[] = ['designer', 'editor', 'qa', 'printer'];
+export const ROLE_PRIORITY: StudentRole[] = ['pm', 'qa', 'dev', 'hardware'];
 
+// Mapping: pm → Editor, qa → QA, dev → Designer, hardware → Printer
 export const ROLE_LABELS: Record<StudentRole, string> = {
-    designer: 'Designer',
-    editor:   'Editor',
+    pm:       'Editor',
     qa:       'QA',
-    printer:  'Printer',
+    dev:      'Designer',
+    hardware: 'Printer',
 };
 
 export const ROLE_EMOJI: Record<StudentRole, string> = {
-    designer: '📐',
-    editor:   '✂️',
+    pm:       '✂️',
     qa:       '🔍',
-    printer:  '🖨️',
+    dev:      '📐',
+    hardware: '🖨️',
 };
 
 export interface RoleCount {
-    designer: number;
-    editor: number;
+    pm: number;
     qa: number;
-    printer: number;
+    dev: number;
+    hardware: number;
 }
 
 export interface StudentWithRoleHistory {

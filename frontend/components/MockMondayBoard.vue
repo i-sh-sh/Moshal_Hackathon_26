@@ -74,11 +74,12 @@ function showToast(msg: string, type: 'success' | 'error') {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+// Internal keys are pm/qa/dev/hardware; display labels match the new mapping.
 const roleLabel: Record<string, string> = {
-    designer: 'Designer',
-    editor: 'Editor',
-    qa: 'QA',
-    printer: 'Printer',
+    pm:       'Editor',
+    qa:       'QA',
+    dev:      'Designer',
+    hardware: 'Printer',
 };
 
 function formatTime(iso: string) {

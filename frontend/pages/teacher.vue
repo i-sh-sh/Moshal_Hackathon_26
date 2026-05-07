@@ -2,6 +2,7 @@
 import { useTeacher } from '~/composables/useTeacher';
 import { useUser } from '~/composables/useUser';
 import type { Challenge, Team } from '~/types/types';
+import { LESSONS_PER_MISSION } from '~/services/demoData';
 
 useHead({ title: 'TechSchool — לוח מורה' });
 
@@ -60,23 +61,23 @@ function publishFromCard(challenge: Challenge) {
 
 function teamsOnChallenge(challengeId: string): Team[] {
     return teacherData.teams.value.filter(
-        (t: any) => t.current_challenge_id === challengeId,
+        (t: any) => (t.currentChallengeId ?? t.current_challenge_id) === challengeId,
     );
 }
 
-const LESSONS_BY_CHALLENGE: Record<string, number> = {
-    'אתגר מספר 1 – מתנה': 5,
-    'אתגר אישי: פאזל — פאזלים לכבדי ראייה': 3,
-    'אתגר מספר 3 – סטייל אישי': 7,
-};
-
 function lessonsFor(c: Challenge): number {
-    return LESSONS_BY_CHALLENGE[c.title] ?? 0;
+    return LESSONS_PER_MISSION[c.id] ?? 0;
+}
+
+function dateFor(c: Challenge): Date {
+    const raw = (c as any).createdAt ?? (c as any).created_at;
+    return raw ? new Date(raw) : new Date();
 }
 
 function statusBadgeFor(c: Challenge) {
     const onTeams = teamsOnChallenge(c.id);
-    if (onTeams.length > 0 || (c as any).is_active) {
+    const active = (c as any).isActive ?? (c as any).is_active;
+    if (onTeams.length > 0 || active) {
         return { text: 'פעיל', cls: 'bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200' };
     }
     return { text: 'לא פעיל', cls: 'bg-gray-100 text-gray-500 ring-1 ring-gray-200' };
@@ -203,7 +204,7 @@ function handleLogout() {
                             <div class="flex items-center gap-3 text-xs text-gray-500 mt-1">
                                 <span class="flex items-center gap-1">
                                     <span>📅</span>
-                                    <span>{{ new Date((c as any).created_at ?? Date.now()).toLocaleDateString('he-IL') }}</span>
+                                    <span>{{ dateFor(c).toLocaleDateString('he-IL') }}</span>
                                 </span>
                                 <span class="text-gray-300">·</span>
                                 <span>{{ lessonsFor(c) }} שיעורי האתגר</span>

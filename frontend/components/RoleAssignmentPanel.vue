@@ -43,10 +43,10 @@ watch(
 );
 
 const ROLE_COLOR: Record<string, string> = {
-    designer: 'bg-blue-100 text-blue-700 ring-1 ring-blue-200',
-    editor:   'bg-purple-100 text-purple-700 ring-1 ring-purple-200',
+    pm:       'bg-purple-100 text-purple-700 ring-1 ring-purple-200',
     qa:       'bg-yellow-100 text-yellow-700 ring-1 ring-yellow-200',
-    printer:  'bg-green-100 text-green-700 ring-1 ring-green-200',
+    dev:      'bg-blue-100 text-blue-700 ring-1 ring-blue-200',
+    hardware: 'bg-green-100 text-green-700 ring-1 ring-green-200',
 };
 
 function roleColorClass(role: StudentRole | null) {

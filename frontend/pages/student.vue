@@ -142,9 +142,9 @@ function addImprovement() {
 
 // ── Role helpers ──────────────────────────────────────────────────────────────
 const role = computed(() => user.value?.currentRole ?? null);
-function canSubmit(t: Task) { return (role.value === 'designer' || role.value === 'printer') && (t.status === 'pending' || t.status === 'rejected'); }
+function canSubmit(t: Task) { return (role.value === 'dev' || role.value === 'hardware') && (t.status === 'pending' || t.status === 'rejected'); }
 function canQaReview(t: Task) { return role.value === 'qa' && t.status === 'qa_review'; }
-function canPmReview(t: Task) { return role.value === 'editor' && t.status === 'pm_review'; }
+function canPmReview(t: Task) { return role.value === 'pm' && t.status === 'pm_review'; }
 function canHint(t: Task) { return t.status !== 'approved' && t.status !== 'teacher_review'; }
 
 // ── Status display ────────────────────────────────────────────────────────────
@@ -161,16 +161,16 @@ const statusColors: Record<string, string> = {
     rejected: 'bg-red-100 text-red-600',
 };
 const roleColors: Record<string, string> = {
-    designer: 'bg-blue-500',
-    editor:   'bg-purple-500',
+    pm:       'bg-purple-500',
     qa:       'bg-yellow-500',
-    printer:  'bg-green-500',
+    dev:      'bg-blue-500',
+    hardware: 'bg-green-500',
 };
 const roleEmoji: Record<string, string> = {
-    designer: '📐',
-    editor:   '✂️',
+    pm:       '✂️',
     qa:       '🔍',
-    printer:  '🖨️',
+    dev:      '📐',
+    hardware: '🖨️',
 };
 
 function roleDisplay(role: string | null | undefined): string {
@@ -357,7 +357,7 @@ function onQuizSubmitted(r: { score: number; total: number; learningGain: number
                         </a>
 
                         <!-- QA notes for PM -->
-                        <div v-if="task.qaNotes && role === 'editor' && task.status === 'pm_review'" class="bg-yellow-50 rounded-lg px-3 py-2 text-xs text-yellow-800">
+                        <div v-if="task.qaNotes && role === 'pm' && task.status === 'pm_review'" class="bg-yellow-50 rounded-lg px-3 py-2 text-xs text-yellow-800">
                             💬 QA: {{ task.qaNotes }}
                         </div>
 

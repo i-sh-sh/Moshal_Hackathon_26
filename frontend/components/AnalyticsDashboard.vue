@@ -38,10 +38,10 @@ import { ROLE_LABELS } from '~/types/types';
 import type { StudentRole } from '~/types/types';
 
 const roleColors: Record<string, string> = {
-    designer: 'bg-blue-100 text-blue-700',
-    editor:   'bg-purple-100 text-purple-700',
+    pm:       'bg-purple-100 text-purple-700',
     qa:       'bg-yellow-100 text-yellow-700',
-    printer:  'bg-green-100 text-green-700',
+    dev:      'bg-blue-100 text-blue-700',
+    hardware: 'bg-green-100 text-green-700',
 };
 
 function roleDisplay(role: string | null): string {

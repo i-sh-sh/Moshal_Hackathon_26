@@ -1,21 +1,23 @@
 /**
  * Shared role constants and types for the teacher workflow.
  *
- * Roles correspond to the 3D-print mission pipeline:
- *   designer → editor → qa → printer
+ * Internal role keys stay as the original taxonomy (pm/qa/dev/hardware) so
+ * the existing DB CHECK constraints, task pipeline, and JWT payload all
+ * remain valid. Display labels — "Editor", "QA", "Designer", "Printer" —
+ * are mapped at the UI layer (frontend ROLE_LABELS).
  *
- * @version 1.00
+ * @version 1.10
  */
 
-export const ROLE_PRIORITY = ['designer', 'editor', 'qa', 'printer'] as const;
+export const ROLE_PRIORITY = ['pm', 'qa', 'dev', 'hardware'] as const;
 
 export type StudentRole = typeof ROLE_PRIORITY[number];
 
 export interface RoleCount {
-    designer: number;
-    editor: number;
+    pm: number;
     qa: number;
-    printer: number;
+    dev: number;
+    hardware: number;
 }
 
 export interface StudentWithRoleHistory {

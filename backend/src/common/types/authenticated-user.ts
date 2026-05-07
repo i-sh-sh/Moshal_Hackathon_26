@@ -10,7 +10,7 @@
 
 export type AccountType = 'student' | 'teacher' | 'admin';
 
-export type WorkRole = 'designer' | 'editor' | 'qa' | 'printer';
+export type WorkRole = 'pm' | 'qa' | 'dev' | 'hardware';
 
 export interface AuthenticatedUser {
     /** users.id */

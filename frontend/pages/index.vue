@@ -2,14 +2,13 @@
 import type { UserRole, StudentRole } from '~/types/types';
 import { ROLE_LABELS } from '~/types/types';
 import { useUser } from '~/composables/useUser';
+import { DEMO_USERS } from '~/services/demoData';
 
 useHead({ title: 'TechSchool — התחברות' });
 
 const TS_LOGO_URL =
     'https://il-lms.techschool.org/wp-content/themes/techschool-IL/assets/img/tech_school_logo.png';
 
-const config = useRuntimeConfig();
-const base = config.public.apiBaseUrl;
 const { login } = useUser();
 const router = useRouter();
 
@@ -22,33 +21,24 @@ interface ApiUser {
     account_type?: string;
 }
 
-const users = ref<ApiUser[]>([]);
-const loading = ref(true);
+// POC: hardcoded demo users — no backend dependency.
+const users = ref<ApiUser[]>([...DEMO_USERS]);
+const loading = ref(false);
 const error = ref<string | null>(null);
 const selecting = ref<string | null>(null);
 
-onMounted(async () => {
-    try {
-        users.value = await $fetch<ApiUser[]>(`${base}/users`);
-    } catch (e) {
-        error.value = 'לא הצלחנו לטעון משתמשים — בדוק שהשרת רץ.';
-    } finally {
-        loading.value = false;
-    }
-});
-
 const roleColors: Record<string, string> = {
-    designer: 'bg-blue-100 text-blue-700',
-    editor:   'bg-purple-100 text-purple-700',
+    pm:       'bg-purple-100 text-purple-700',
     qa:       'bg-yellow-100 text-yellow-700',
-    printer:  'bg-green-100 text-green-700',
+    dev:      'bg-blue-100 text-blue-700',
+    hardware: 'bg-green-100 text-green-700',
 };
 
 const roleEmoji: Record<string, string> = {
-    designer: '📐',
-    editor:   '✂️',
+    pm:       '✂️',
     qa:       '🔍',
-    printer:  '🖨️',
+    dev:      '📐',
+    hardware: '🖨️',
 };
 
 function roleDisplay(role: string | null): string {
