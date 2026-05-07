@@ -12,9 +12,74 @@ const emit = defineEmits<{
     send: [content: string];
 }>();
 
+const config = useRuntimeConfig();
+const base = config.public.apiBaseUrl;
+
 const input = ref('');
 const scrollEl = ref<HTMLDivElement | null>(null);
 
+// ── Speech-to-text ────────────────────────────────────────────────────────────
+const recording = ref(false);
+const transcribing = ref(false);
+let mediaRecorder: MediaRecorder | null = null;
+let audioChunks: Blob[] = [];
+
+async function startRecording() {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        audioChunks = [];
+        mediaRecorder = new MediaRecorder(stream);
+        mediaRecorder.ondataavailable = (e) => {
+            if (e.data.size > 0) audioChunks.push(e.data);
+        };
+        mediaRecorder.onstop = async () => {
+            stream.getTracks().forEach((t) => t.stop());
+            await sendAudioForTranscription();
+        };
+        mediaRecorder.start();
+        recording.value = true;
+    } catch {
+        alert('לא ניתן לגשת למיקרופון. בדוק הרשאות בדפדפן.');
+    }
+}
+
+function stopRecording() {
+    mediaRecorder?.stop();
+    recording.value = false;
+}
+
+async function sendAudioForTranscription() {
+    if (!audioChunks.length) return;
+    transcribing.value = true;
+    try {
+        const mimeType = mediaRecorder?.mimeType ?? 'audio/webm';
+        const blob = new Blob(audioChunks, { type: mimeType });
+        const formData = new FormData();
+        formData.append('audio', blob, 'recording.webm');
+        const result = await $fetch<{ text: string }>(`${base}/chat/transcribe`, {
+            method: 'POST',
+            body: formData,
+        });
+        if (result.text) {
+            input.value = (input.value ? input.value + ' ' : '') + result.text;
+        }
+    } catch {
+        // silent — user can still type manually
+    } finally {
+        transcribing.value = false;
+        audioChunks = [];
+    }
+}
+
+function toggleMic() {
+    if (recording.value) {
+        stopRecording();
+    } else {
+        startRecording();
+    }
+}
+
+// ── Message handling ──────────────────────────────────────────────────────────
 function formatTime(iso: string): string {
     const d = new Date(iso);
     return d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
@@ -27,7 +92,6 @@ function handleSend() {
     input.value = '';
 }
 
-// Auto-scroll on new messages
 watch(
     () => props.messages.length,
     async () => {
@@ -100,14 +164,32 @@ watch(
 
         <!-- Input -->
         <div class="border-t border-gray-100 px-3 py-2 flex gap-2 items-end">
+
+            <!-- Mic button -->
+            <button
+                class="shrink-0 w-9 h-9 rounded-xl flex items-center justify-center transition-colors"
+                :class="recording
+                    ? 'bg-red-500 text-white animate-pulse'
+                    : 'bg-gray-100 text-gray-500 hover:bg-gray-200'"
+                :title="recording ? 'עצור הקלטה' : 'הקלט הודעה קולית'"
+                :disabled="transcribing"
+                @click="toggleMic"
+            >
+                <span v-if="transcribing" class="inline-block w-4 h-4 border-2 border-gray-400/40 border-t-gray-600 rounded-full animate-spin" />
+                <svg v-else xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 1a4 4 0 0 1 4 4v7a4 4 0 0 1-8 0V5a4 4 0 0 1 4-4zm-1 18.93V22h2v-2.07A8.001 8.001 0 0 0 20 12h-2a6 6 0 0 1-12 0H4a8.001 8.001 0 0 0 7 7.93z"/>
+                </svg>
+            </button>
+
             <textarea
                 v-model="input"
                 rows="1"
                 class="flex-1 resize-none border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 leading-snug"
-                placeholder="כתבו הודעה... DUDE ישיב"
+                :placeholder="recording ? '🔴 מקליט... לחץ על המיקרופון לסיום' : 'כתבו הודעה... DUDE ישיב'"
                 style="max-height: 100px; overflow-y: auto"
                 @keydown.enter.exact.prevent="handleSend"
             />
+
             <button
                 class="bg-indigo-600 text-white rounded-xl px-3 py-2 text-sm font-medium hover:bg-indigo-700 transition-colors disabled:opacity-50"
                 :disabled="sending || !input.trim()"
@@ -116,6 +198,12 @@ watch(
                 <span v-if="sending" class="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
                 <span v-else>שלח</span>
             </button>
+        </div>
+
+        <!-- Recording indicator -->
+        <div v-if="recording" class="bg-red-50 border-t border-red-200 px-4 py-1.5 flex items-center gap-2 text-xs text-red-600">
+            <span class="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+            מקליט... לחץ על 🎤 שוב לסיום ולהמרה לטקסט
         </div>
     </div>
 </template>

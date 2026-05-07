@@ -11,7 +11,7 @@
  */
 
 import { Injectable, Logger } from '@nestjs/common';
-import { AzureOpenAI } from 'openai';
+import { AzureOpenAI, toFile } from 'openai';
 import type { HintContext } from '../../rag/rag.service';
 import { ConfigService } from '../../config/config.service';
 import { GatekeeperService } from '../../gatekeeper/gatekeeper.service';
@@ -36,17 +36,24 @@ export class AIService {
     private readonly logger = new Logger(AIService.name);
     private readonly client: AzureOpenAI | null;
     private readonly deployment: string;
+    private readonly whisperDeployment: string;
     private readonly enabled: boolean;
 
     constructor(
         private readonly config: ConfigService,
         private readonly gatekeeper: GatekeeperService,
     ) {
-        const { azureOpenAiEndpoint, azureOpenAiApiKey, azureOpenAiDeployment, azureOpenAiApiVersion } =
-            this.config.integrations;
+        const {
+            azureOpenAiEndpoint,
+            azureOpenAiApiKey,
+            azureOpenAiDeployment,
+            azureOpenAiApiVersion,
+            azureOpenAiWhisperDeployment,
+        } = this.config.integrations;
 
         this.enabled = azureOpenAiEndpoint.length > 0 && azureOpenAiApiKey.length > 0;
         this.deployment = azureOpenAiDeployment;
+        this.whisperDeployment = azureOpenAiWhisperDeployment;
 
         this.client = this.enabled
             ? new AzureOpenAI({
@@ -196,6 +203,30 @@ ${depthInstruction}
 - אל תתן את הפתרון המלא
 - עד 3 משפטים
 `.trim();
+    }
+
+    /**
+     * Transcribes an audio buffer to text using Azure OpenAI Whisper.
+     * Accepts any browser-recorded format (webm, ogg, mp4, wav).
+     */
+    async transcribeAudio(buffer: Buffer, mimeType = 'audio/webm'): Promise<string> {
+        if (!this.client) {
+            return '[Mock transcription] speech-to-text requires AZURE_OPENAI_API_KEY + AZURE_OPENAI_WHISPER_DEPLOYMENT';
+        }
+        try {
+            const ext = mimeType.split('/')[1]?.split(';')[0] ?? 'webm';
+            const file = await toFile(buffer, `recording.${ext}`, { type: mimeType });
+            const result = await this.gatekeeper.execute('azure', () =>
+                this.client!.audio.transcriptions.create({
+                    file,
+                    model: this.whisperDeployment,
+                }),
+            );
+            return result.text ?? '';
+        } catch (err) {
+            this.logger.error('transcribeAudio failed', (err as Error).message);
+            return '';
+        }
     }
 
     /**

@@ -1,10 +1,18 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import {
+    Body, Controller, Get, HttpCode, Param,
+    Post, Query, UploadedFile, UseInterceptors,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { ChatService } from './chat.service';
+import { AIService } from '../integrations/ai/ai.service';
 import { SendMessageDto } from './dto/send-message.dto';
 
 @Controller('chat')
 export class ChatController {
-    constructor(private readonly chat: ChatService) {}
+    constructor(
+        private readonly chat: ChatService,
+        private readonly ai: AIService,
+    ) {}
 
     /** GET /chat/channels — all channels (teacher view) */
     @Get('channels')
@@ -43,5 +51,19 @@ export class ChatController {
         @Body() dto: SendMessageDto,
     ) {
         return this.chat.sendMessage(channelId, dto.senderId, dto.senderName, dto.content);
+    }
+
+    /**
+     * POST /chat/transcribe
+     * Accepts a multipart audio file and returns { text: string }.
+     * Frontend records via MediaRecorder, sends as FormData field "audio".
+     */
+    @Post('transcribe')
+    @HttpCode(200)
+    @UseInterceptors(FileInterceptor('audio'))
+    async transcribe(@UploadedFile() file: Express.Multer.File) {
+        if (!file) return { text: '' };
+        const text = await this.ai.transcribeAudio(file.buffer, file.mimetype);
+        return { text };
     }
 }
