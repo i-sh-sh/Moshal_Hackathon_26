@@ -143,7 +143,8 @@ function addImprovement() {
 }
 
 // ── Task card navigation ──────────────────────────────────────────────────────
-function navigateToTask(taskId: string, event: MouseEvent) {
+function navigateToTask(taskId: string, event: MouseEvent, locked: boolean) {
+    if (locked) return;
     if ((event.target as HTMLElement).closest('button, a')) return;
     router.push(`/tasks/${taskId}`);
 }
@@ -332,15 +333,37 @@ onUnmounted(() => { if (tickTimer) clearInterval(tickTimer); });
 
                 <div v-else class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     <article
-                        v-for="task in tasks"
+                        v-for="(task, index) in tasks"
                         :key="task.id"
-                        class="bg-white rounded-2xl border border-gray-200 shadow-sm flex flex-col p-4 gap-3 hover:shadow-md hover:border-[#3CC2EE]/40 transition-all cursor-pointer"
-                        @click="navigateToTask(task.id, $event)"
+                        class="rounded-2xl border shadow-sm flex flex-col overflow-hidden transition-all"
+                        :class="index === 0
+                            ? 'bg-white border-[#3CC2EE]/30 hover:shadow-md hover:border-[#3CC2EE]/60 cursor-pointer'
+                            : 'bg-gray-50 border-gray-200 opacity-55 cursor-not-allowed'"
+                        @click="navigateToTask(task.id, $event, index !== 0)"
                     >
+                        <!-- Challenge header strip -->
+                        <div
+                            class="flex items-center justify-between px-4 py-2.5"
+                            :class="index === 0
+                                ? 'bg-gradient-to-r from-[#3CC2EE] to-cyan-500 text-white'
+                                : 'bg-gray-200 text-gray-500'"
+                        >
+                            <span class="text-sm font-extrabold tracking-wide">
+                                אתגר מספר {{ index + 1 }}
+                            </span>
+                            <span v-if="index > 0" class="text-xs font-semibold flex items-center gap-1 opacity-80">
+                                🔒 נעול
+                            </span>
+                            <span v-else class="text-xs font-semibold opacity-80">פעיל ▸</span>
+                        </div>
+
+                        <!-- Card body -->
+                        <div class="flex flex-col p-4 gap-3">
+
                         <!-- Header -->
                         <div class="flex items-start justify-between gap-2">
-                            <h3 class="font-semibold text-gray-800 text-sm leading-snug flex-1">{{ task.title }}</h3>
-                            <span :class="['text-xs font-medium px-2 py-0.5 rounded-full shrink-0', statusColors[task.status]]">
+                            <h3 class="font-semibold text-sm leading-snug flex-1" :class="index === 0 ? 'text-gray-800' : 'text-gray-400'">{{ task.title }}</h3>
+                            <span :class="['text-xs font-medium px-2 py-0.5 rounded-full shrink-0', index === 0 ? statusColors[task.status] : 'bg-gray-100 text-gray-400']">
                                 <EnglishTerm :term="statusLabels[task.status]" />
                             </span>
                         </div>
@@ -383,6 +406,8 @@ onUnmounted(() => { if (tickTimer) clearInterval(tickTimer); });
                                 💡 רמז
                             </button>
                         </div>
+
+                        </div><!-- end card body -->
                     </article>
                 </div>
 

@@ -1,7 +1,14 @@
 <script setup lang="ts">
+export interface TeamMember {
+    id: string;
+    name: string;
+    role: string | null;
+}
+
 defineProps<{
     schoolLabel?: string;
     onLogout?: () => void;
+    teamMembers?: TeamMember[];
 }>();
 
 const TS_LOGO_URL =
@@ -20,6 +27,31 @@ const navItems: NavItem[] = [
     { label: 'תפעול מדפסת',  icon: '🛠️' },
     { label: 'המעבדה',       icon: '🧪' },
 ];
+
+const ROLE_DISPLAY: Record<string, string> = {
+    pm:       'Editor',
+    qa:       'QA',
+    dev:      'Designer',
+    hardware: 'Printer',
+};
+
+const ROLE_CHIP: Record<string, string> = {
+    pm:       'bg-violet-100 text-violet-700',
+    qa:       'bg-amber-100  text-amber-700',
+    dev:      'bg-blue-100   text-blue-700',
+    hardware: 'bg-emerald-100 text-emerald-700',
+};
+
+const INITIAL_BG: Record<string, string> = {
+    pm:       'bg-violet-400',
+    qa:       'bg-amber-400',
+    dev:      'bg-blue-400',
+    hardware: 'bg-emerald-400',
+};
+
+function initials(name: string): string {
+    return name.split(' ').map((w) => w[0] ?? '').slice(0, 2).join('').toUpperCase();
+}
 </script>
 
 <template>
@@ -52,6 +84,35 @@ const navItems: NavItem[] = [
             <span>{{ item.label }}</span>
             <span>{{ item.icon }}</span>
         </button>
+
+        <!-- "הכר את הצוות" panel — shown only when teamMembers prop is passed -->
+        <div v-if="teamMembers && teamMembers.length" class="mt-2 bg-white/20 rounded-2xl p-3 flex flex-col gap-2">
+            <p class="text-white text-xs font-extrabold text-center tracking-wide">הכר את הצוות</p>
+            <div
+                v-for="member in teamMembers"
+                :key="member.id"
+                class="flex items-center gap-2"
+            >
+                <!-- Initials circle -->
+                <div
+                    class="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
+                    :class="member.role ? (INITIAL_BG[member.role] ?? 'bg-gray-400') : 'bg-gray-400'"
+                >
+                    {{ initials(member.name) }}
+                </div>
+                <!-- Name + role -->
+                <div class="flex flex-col min-w-0">
+                    <span class="text-white text-xs font-semibold leading-tight truncate">{{ member.name }}</span>
+                    <span
+                        v-if="member.role"
+                        class="text-xs font-bold px-1.5 py-0.5 rounded-full mt-0.5 self-start leading-tight"
+                        :class="ROLE_CHIP[member.role] ?? 'bg-gray-100 text-gray-600'"
+                    >
+                        {{ ROLE_DISPLAY[member.role] ?? member.role }}
+                    </span>
+                </div>
+            </div>
+        </div>
 
         <!-- Bot avatar -->
         <div class="mt-4 flex flex-col items-center gap-2">
