@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import type { UserRole, StudentRole } from '~/types/types';
-import { ROLE_LABELS } from '~/types/types';
+import type { UserRole } from '~/types/types';
 import { useUser } from '~/composables/useUser';
 import { DEMO_USERS } from '~/services/demoData';
 
@@ -37,25 +36,6 @@ const filteredUsers = computed(() =>
             ? users.value.filter(u => u.account_type === 'teacher' || u.account_type === 'admin')
             : [],
 );
-
-const roleColors: Record<string, string> = {
-    pm:       'bg-purple-100 text-purple-700',
-    qa:       'bg-yellow-100 text-yellow-700',
-    dev:      'bg-blue-100 text-blue-700',
-    hardware: 'bg-green-100 text-green-700',
-};
-
-const roleEmoji: Record<string, string> = {
-    pm:       '✂️',
-    qa:       '🔍',
-    dev:      '📐',
-    hardware: '🖨️',
-};
-
-function roleDisplay(role: string | null): string {
-    if (!role) return '';
-    return ROLE_LABELS[role as StudentRole] ?? role.toUpperCase();
-}
 
 async function selectUser(u: ApiUser) {
     selecting.value = u.id;
@@ -164,20 +144,13 @@ async function selectUser(u: ApiUser) {
                             <p class="text-gray-400 text-xs mt-0.5 truncate max-w-[120px]">{{ u.email }}</p>
                         </div>
 
-                        <!-- Role badge -->
-                        <span
-                            v-if="u.current_role"
-                            :class="['text-xs font-medium px-2.5 py-0.5 rounded-full', roleColors[u.current_role] ?? 'bg-gray-100 text-gray-600']"
-                        >
-                            {{ roleEmoji[u.current_role] ?? '' }} {{ roleDisplay(u.current_role) }}
-                        </span>
-                        <span v-else-if="u.account_type === 'teacher'" class="text-xs font-medium px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-700">
+                        <!-- Account type badge (teachers/admins only) -->
+                        <span v-if="u.account_type === 'teacher'" class="text-xs font-medium px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-700">
                             🎓 מורה
                         </span>
                         <span v-else-if="u.account_type === 'admin'" class="text-xs font-medium px-2.5 py-0.5 rounded-full bg-gray-200 text-gray-700">
                             🛡️ אדמין
                         </span>
-                        <span v-else class="text-xs text-gray-300">ללא תפקיד</span>
 
                         <!-- Spinner on select -->
                         <div v-if="selecting === u.id" class="w-4 h-4 border-2 border-[#3CC2EE]/30 border-t-[#3CC2EE] rounded-full animate-spin" />
