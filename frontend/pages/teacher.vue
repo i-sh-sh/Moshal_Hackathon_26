@@ -104,6 +104,7 @@ async function loadProfiles() {
     
     enrichedProfiles.value = allProfiles.value.map((p) => ({
         ...p,
+        // Convert readonly array to mutable array to satisfy StudentProfile interface
         detectedTerms: [...p.detectedTerms],
         name: nameMap.get(p.userId) ?? 'תלמיד לא מזוהה',
     }));
@@ -162,7 +163,7 @@ watch(activeTab, (tab) => {
         <!-- Main Content Area -->
         <main class="flex-1 overflow-auto bg-gray-50 flex flex-col">
             
-            <!-- 1. Missions Tab (Restored) -->
+            <!-- 1. Missions Tab -->
             <div v-if="activeTab === 'missions'" class="flex-1 px-8 py-10">
                 <div class="max-w-6xl mx-auto">
                     <div class="mb-8">
