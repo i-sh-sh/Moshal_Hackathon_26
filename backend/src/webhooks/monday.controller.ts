@@ -1,7 +1,7 @@
 import {
     Body, Controller, Headers, HttpCode, Logger, Post, UnauthorizedException,
 } from '@nestjs/common';
-import { DbService } from '../db/db.service';
+import { SupabaseService } from '../supabase/supabase.service';
 import { TasksService } from '../tasks/tasks.service';
 
 interface MondayChallenge { challenge: string; }
@@ -16,7 +16,7 @@ export class MondayController {
     private readonly logger = new Logger(MondayController.name);
 
     constructor(
-        private readonly db: DbService,
+        private readonly supabase: SupabaseService,
         private readonly tasksService: TasksService,
     ) {}
 
@@ -51,17 +51,27 @@ export class MondayController {
     }
 
     private async handleChallengeKickoff(event: MondayEvent): Promise<void> {
-        const [challenge] = await this.db.sql<{ id: string }[]>`
-            SELECT id FROM challenges WHERE monday_board_id = ${event.boardId ?? null}
-        `;
-        if (!challenge) { this.logger.warn(`No challenge mapped to Monday board ${event.boardId}`); return; }
+        const { data: challenge } = await this.supabase.db
+            .from('challenges')
+            .select('id')
+            .eq('monday_board_id', event.boardId ?? null)
+            .maybeSingle();
 
-        await this.db.sql`UPDATE challenges SET is_active = true WHERE id = ${challenge.id}`;
-        await this.db.sql`
-            UPDATE teams SET current_challenge_id = ${challenge.id}, sprint_status = 'active',
-            is_completed = false, updated_at = now()
-            WHERE id != '00000000-0000-0000-0000-000000000000'
-        `;
+        if (!challenge) {
+            this.logger.warn(`No challenge mapped to Monday board ${event.boardId}`);
+            return;
+        }
+
+        await this.supabase.db
+            .from('challenges')
+            .update({ is_active: true })
+            .eq('id', challenge.id);
+
+        await this.supabase.db
+            .from('teams')
+            .update({ current_challenge_id: challenge.id, sprint_status: 'active', is_completed: false })
+            .neq('id', '00000000-0000-0000-0000-000000000000');
+
         this.logger.log(`Challenge ${challenge.id} kicked off via Monday board ${event.boardId}`);
     }
 
@@ -70,9 +80,12 @@ export class MondayController {
         const label = value?.label?.text?.toLowerCase() ?? '';
         if (!['approved', 'done'].includes(label)) return;
 
-        const [task] = await this.db.sql<{ id: string; status: string }[]>`
-            SELECT id, status FROM tasks WHERE monday_item_id = ${event.pulseId ?? null}
-        `;
+        const { data: task } = await this.supabase.db
+            .from('tasks')
+            .select('id, status')
+            .eq('monday_item_id', event.pulseId ?? null)
+            .maybeSingle();
+
         if (!task || task.status !== 'teacher_review') return;
 
         this.logger.log(`Teacher approved task ${task.id} via Monday`);

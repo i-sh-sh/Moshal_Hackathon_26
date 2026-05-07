@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { DbService } from '../db/db.service';
+import { SupabaseService } from '../supabase/supabase.service';
 
 export interface UserRow {
     id: string;
@@ -14,23 +14,27 @@ export interface UserRow {
 
 @Injectable()
 export class UsersService {
-    constructor(private readonly db: DbService) {}
+    constructor(private readonly supabase: SupabaseService) {}
 
     async findAll(): Promise<UserRow[]> {
-        return this.db.sql<UserRow[]>`
-            SELECT id, name, email, current_team_id, current_role,
-                   total_active_time, last_login_at, created_at
-            FROM users ORDER BY name
-        `;
+        const { data, error } = await this.supabase.db
+            .from('users')
+            .select('id, name, email, current_team_id, current_role, total_active_time, last_login_at, created_at')
+            .order('name');
+
+        if (error) throw new Error(error.message);
+        return (data as UserRow[]) ?? [];
     }
 
     async findOne(id: string): Promise<UserRow> {
-        const [row] = await this.db.sql<UserRow[]>`
-            SELECT id, name, email, current_team_id, current_role,
-                   total_active_time, last_login_at, created_at
-            FROM users WHERE id = ${id}
-        `;
-        if (!row) throw new NotFoundException(`User ${id} not found`);
-        return row;
+        const { data, error } = await this.supabase.db
+            .from('users')
+            .select('id, name, email, current_team_id, current_role, total_active_time, last_login_at, created_at')
+            .eq('id', id)
+            .maybeSingle();
+
+        if (error) throw new Error(error.message);
+        if (!data) throw new NotFoundException(`User ${id} not found`);
+        return data as UserRow;
     }
 }

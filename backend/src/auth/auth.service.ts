@@ -11,7 +11,7 @@
 
 import { ForbiddenException, Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '../config/config.service';
-import { DbService } from '../db/db.service';
+import { SupabaseService } from '../supabase/supabase.service';
 import { AuditLogService } from '../audit/audit-log.service';
 import { JwtService } from './jwt.service';
 import { RefreshTokenService } from './refresh-token.service';
@@ -47,7 +47,7 @@ interface UserStateRow {
 export class AuthService {
     constructor(
         private readonly config: ConfigService,
-        private readonly db: DbService,
+        private readonly supabase: SupabaseService,
         private readonly jwt: JwtService,
         private readonly refresh: RefreshTokenService,
         private readonly audit: AuditLogService,
@@ -104,18 +104,22 @@ export class AuthService {
 
     async refreshTokens(rawRefresh: string, ctx: { ip?: string; userAgent?: string }): Promise<TokenPair> {
         const rotated = await this.refresh.rotate(rawRefresh, ctx);
-        const [row] = await this.db.sql<UserStateRow[]>`
-            select id, email, account_type, current_team_id, current_role
-            from users where id = ${rotated.userId} and is_active = true
-        `;
+
+        const { data: row } = await this.supabase.db
+            .from('users')
+            .select('id, email, account_type, current_team_id, current_role')
+            .eq('id', rotated.userId)
+            .eq('is_active', true)
+            .maybeSingle();
+
         if (!row) throw new ForbiddenException('User no longer active');
 
         const authUser: AuthenticatedUser = {
-            userId: row.id,
-            email: row.email,
-            accountType: row.account_type,
-            currentRole: row.current_role,
-            currentTeamId: row.current_team_id,
+            userId: (row as UserStateRow).id,
+            email: (row as UserStateRow).email,
+            accountType: (row as UserStateRow).account_type,
+            currentRole: (row as UserStateRow).current_role,
+            currentTeamId: (row as UserStateRow).current_team_id,
         };
         const access = this.jwt.signAccessToken(authUser);
         return {
@@ -136,9 +140,9 @@ export class AuthService {
     }
 
     private async markLoggedIn(userId: string): Promise<void> {
-        await this.db.sql`
-            update users set last_login_at = now(), updated_at = now()
-            where id = ${userId}
-        `;
+        await this.supabase.db
+            .from('users')
+            .update({ last_login_at: new Date().toISOString() })
+            .eq('id', userId);
     }
 }

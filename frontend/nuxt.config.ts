@@ -9,6 +9,8 @@ export default defineNuxtConfig({
     runtimeConfig: {
         public: {
             apiBaseUrl: 'http://localhost:3001/api', // set via NUXT_PUBLIC_API_BASE_URL
+            supabaseUrl: '', // set via NUXT_PUBLIC_SUPABASE_URL
+            supabaseAnonKey: '', // set via NUXT_PUBLIC_SUPABASE_ANON_KEY
         },
     },
 
