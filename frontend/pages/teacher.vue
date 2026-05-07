@@ -108,6 +108,7 @@ const enrichedProfiles = ref<Array<StudentProfile & { name: string }>>([]);
 async function loadProfiles() {
     await Promise.all([fetchAllProfiles(), fetchAlerts()]);
     const users = await $fetch<Array<{ id: string; name: string }>>(`${base}/users`).catch(() => []);
+
     const nameMap = new Map(users.map((u) => [u.id, u.name]));
     
     enrichedProfiles.value = allProfiles.value.map((p) => ({
@@ -122,7 +123,9 @@ async function loadProfiles() {
 const highAlerts = computed(() => alerts.value.filter((a) => !a.isRead));
 
 watch(activeTab, (tab) => {
-    if (tab === 'profiles') loadProfiles();
+    if (tab === 'profiles') {
+        loadProfiles();
+    }
 });
 </script>
 
@@ -150,18 +153,31 @@ watch(activeTab, (tab) => {
                 >
                     📊 Monday Board
                 </button>
+
                 <button
-                    :class="['px-4 py-1.5 rounded-lg text-xs font-medium transition-colors', activeTab === 'analytics' ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-gray-200']"
+                    :class="[
+                        'px-4 py-1.5 rounded-lg text-xs font-medium transition-colors',
+                        activeTab === 'analytics'
+                            ? 'bg-gray-700 text-white'
+                            : 'text-gray-400 hover:text-gray-200',
+                    ]"
                     @click="activeTab = 'analytics'"
                 >
                     📈 Analytics
                 </button>
+
                 <button
-                    :class="['px-4 py-1.5 rounded-lg text-xs font-medium transition-colors', activeTab === 'chats' ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-gray-200']"
+                    :class="[
+                        'px-4 py-1.5 rounded-lg text-xs font-medium transition-colors',
+                        activeTab === 'chats'
+                            ? 'bg-gray-700 text-white'
+                            : 'text-gray-400 hover:text-gray-200',
+                    ]"
                     @click="activeTab = 'chats'"
                 >
                     💬 DUDE Chats
                 </button>
+
                 <button
                     :class="['px-4 py-1.5 rounded-lg text-xs font-medium transition-colors relative', activeTab === 'profiles' ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-gray-200']"
                     @click="activeTab = 'profiles'"
@@ -397,6 +413,15 @@ watch(activeTab, (tab) => {
     -webkit-box-orient: vertical;
     overflow: hidden;
 }
-.toast-enter-active, .toast-leave-active { transition: all 0.25s ease; }
-.toast-enter-from, .toast-leave-to { opacity: 0; transform: translate(-50%, 12px); }
+
+.toast-enter-active,
+.toast-leave-active {
+    transition: all 0.25s ease;
+}
+
+.toast-enter-from,
+.toast-leave-to {
+    opacity: 0;
+    transform: translate(-50%, 12px);
+}
 </style>

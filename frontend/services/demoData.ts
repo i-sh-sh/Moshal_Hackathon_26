@@ -131,7 +131,7 @@ export const DEMO_STUDENTS_BY_TEAM: Record<string, StudentWithRoleHistory[]> = {
 // ─── Quiz question pool — Hebrew ────────────────────────────────────────
 export interface DemoQuizQuestion {
     id: string;
-    scope: 'role' | 'mission';
+    scope: 'role' | 'mission' | 'teamwork';
     role: StudentRole | null;        // when scope='role'
     missionId: string | null;        // when scope='mission'
     prompt: string;
@@ -154,6 +154,15 @@ const qMission = (missionId: string, prompt: string, options: string[], correctI
     scope: 'mission',
     role: null,
     missionId,
+    prompt,
+    options,
+    correctIndex,
+});
+const qTeamwork = (prompt: string, options: string[], correctIndex: number): DemoQuizQuestion => ({
+    id: `qq-${(++_qid).toString().padStart(4, '0')}`,
+    scope: 'teamwork',
+    role: null,
+    missionId: null,
     prompt,
     options,
     correctIndex,
@@ -221,6 +230,33 @@ export const DEMO_QUIZ_QUESTIONS: DemoQuizQuestion[] = [
         ['2 מ"מ', '5 מ"מ', '10 מ"מ', '50 מ"מ'], 2),
     qMission(MISSION_IDS.puzzle, 'מה היתרון בשימוש בטקסטורות (נקודות / פסים) על חלקי הפאזל?',
         ['פחות חומר', 'מאפשר לזהות חלקים במגע ולא רק בראייה', 'מקצר זמן הדפסה', 'מוסיף משקל'], 1),
+
+    // ───────── Teamwork / collaboration (2 sampled per quiz) ─────────
+    qTeamwork(
+        'כשנתקלת בקושי ואינך מצליח להתקדם לבד, מה עליך לעשות?',
+        ['לשמור לעצמך ולנסות שוב מאוחר יותר', 'לעדכן את הצוות ולבקש עזרה', 'לוותר על המשימה', 'לחכות שהמורה ישים לב'],
+        1,
+    ),
+    qTeamwork(
+        'סיימת את המשימה שלך מוקדם. מה עדיף לעשות?',
+        ['לשחק בטלפון', 'לבדוק אם מישהו בצוות צריך עזרה', 'לצאת מוקדם', 'לחכות בשקט שיגמר השיעור'],
+        1,
+    ),
+    qTeamwork(
+        'מה תפקידו של ה-PM (Editor) בצוות?',
+        ['להדפיס את קובץ ה-STL', 'לנהל לוח זמנים ולוודא שהצוות עומד בדדליין', 'לאשר קוד', 'לצייר את העיצוב הראשוני'],
+        1,
+    ),
+    qTeamwork(
+        'כשיש חילוקי דעות בצוות, מה הדרך הטובה ביותר לפתור אותם?',
+        ['להמשיך ולהתעלם', 'לדון יחד ולתת לכולם להביע דעה לפני ההחלטה', 'לבקש מהחלש להחליט', 'לבקש מהמורה להכריע מיד'],
+        1,
+    ),
+    qTeamwork(
+        'מה חשוב לעשות לפני שמגישים משימה לסקירת QA?',
+        ['להגיש ישר מבלי לבדוק', 'לבדוק בעצמך שעמדת בכל דרישות המשימה', 'לשאול רק את ה-PM', 'להמתין שה-QA יבקש'],
+        1,
+    ),
 
     // ───────── Mission-specific: style (סטייל אישי) ─────────
     qMission(MISSION_IDS.style, 'מה זה "Print in Place"?',

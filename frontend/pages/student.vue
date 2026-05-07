@@ -143,6 +143,13 @@ function addImprovement() {
     if (v) { qaChecklist.improvements.push(v); qaImprovementInput.value = ''; }
 }
 
+// ── Task card navigation ──────────────────────────────────────────────────────
+function navigateToTask(taskId: string, event: MouseEvent, locked: boolean) {
+    if (locked) return;
+    if ((event.target as HTMLElement).closest('button, a')) return;
+    router.push(`/tasks/${taskId}`);
+}
+
 // ── Role helpers ──────────────────────────────────────────────────────────────
 const role = computed(() => user.value?.currentRole ?? null);
 function canSubmit(t: Task) { return (role.value === 'dev' || role.value === 'hardware') && (t.status === 'pending' || t.status === 'rejected'); }
@@ -250,19 +257,6 @@ onMounted(() => {
 });
 onUnmounted(() => { if (tickTimer) clearInterval(tickTimer); });
 
-// ── Knowledge quizzes (pre/post mission) ──────────────────────────────────
-const quizModal = ref<{ open: boolean; phase: 'pre' | 'post' }>({ open: false, phase: 'pre' });
-function openQuiz(phase: 'pre' | 'post') {
-    quizModal.value = { open: true, phase };
-}
-function onQuizSubmitted(r: { score: number; total: number; learningGain: number | null }) {
-    showToast(
-        r.learningGain !== null
-            ? `Quiz done — score ${r.score}/${r.total} (gain ${r.learningGain >= 0 ? '+' : ''}${r.learningGain})`
-            : `Quiz done — score ${r.score}/${r.total}`,
-        'success',
-    );
-}
 </script>
 
 <template>
@@ -278,9 +272,6 @@ function onQuizSubmitted(r: { score: number; total: number; learningGain: number
             <div class="px-6 h-16 flex items-center gap-3">
                 <!-- Score chips -->
                 <div class="flex items-center gap-2">
-                    <span v-if="role" class="text-xs text-white font-bold px-2.5 py-1 rounded-full" :class="roleColors[role] ?? 'bg-gray-400'">
-                        {{ roleEmoji[role] }} {{ roleDisplay(role) }}
-                    </span>
                     <span v-if="team" class="text-sm text-gray-700 font-semibold">{{ team.name }}</span>
                     <span v-if="team" class="text-xs font-bold text-amber-700 bg-amber-50 ring-1 ring-amber-100 px-2.5 py-1 rounded-full">
                         ⭐ {{ team.accumulated_score }} נק'
@@ -314,31 +305,6 @@ function onQuizSubmitted(r: { score: number; total: number; learningGain: number
 
             <div v-if="!user?.currentTeamId" class="bg-amber-50 border border-amber-200 rounded-2xl p-5 text-sm text-amber-800">
                 ⚠️ אינך משויך/ת לצוות. בקש/י מהמורה להקצות אותך לצוות.
-            </div>
-
-            <!-- Knowledge quizzes — pre / post mission -->
-            <div
-                v-if="team?.current_challenge_id && user?.id"
-                class="bg-white border border-gray-200 rounded-2xl p-4 flex flex-wrap items-center gap-3 shadow-sm"
-            >
-                <span class="text-sm text-gray-700 font-semibold ml-2">📝 בדיקת ידע:</span>
-                <button
-                    class="px-4 py-1.5 bg-[#3CC2EE] hover:bg-[#27b3df] text-white rounded-full text-xs font-bold transition-colors shadow-sm"
-                    @click="openQuiz('pre')"
-                >
-                    בוחן לפני המשימה
-                </button>
-                <button
-                    class="px-4 py-1.5 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-40 text-white rounded-full text-xs font-bold transition-colors shadow-sm"
-                    :disabled="!team?.is_completed"
-                    :title="team?.is_completed ? '' : 'יהיה זמין בסיום המשימה'"
-                    @click="openQuiz('post')"
-                >
-                    בוחן אחרי המשימה
-                </button>
-                <span class="text-xs text-gray-400 mr-auto">
-                    עוזר למורה ולמנטור לראות מה למדת.
-                </span>
             </div>
 
             <SprintProgress
@@ -381,14 +347,37 @@ function onQuizSubmitted(r: { score: number; total: number; learningGain: number
 
                 <div v-else class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     <article
-                        v-for="task in tasks"
+                        v-for="(task, index) in tasks"
                         :key="task.id"
-                        class="bg-white rounded-2xl border border-gray-200 shadow-sm flex flex-col p-4 gap-3 hover:shadow-md hover:border-[#3CC2EE]/40 transition-all"
+                        class="rounded-2xl border shadow-sm flex flex-col overflow-hidden transition-all"
+                        :class="index === 0
+                            ? 'bg-white border-[#3CC2EE]/30 hover:shadow-md hover:border-[#3CC2EE]/60 cursor-pointer'
+                            : 'bg-gray-50 border-gray-200 opacity-55 cursor-not-allowed'"
+                        @click="navigateToTask(task.id, $event, index !== 0)"
                     >
+                        <!-- Challenge header strip -->
+                        <div
+                            class="flex items-center justify-between px-4 py-2.5"
+                            :class="index === 0
+                                ? 'bg-gradient-to-r from-[#3CC2EE] to-cyan-500 text-white'
+                                : 'bg-gray-200 text-gray-500'"
+                        >
+                            <span class="text-sm font-extrabold tracking-wide">
+                                אתגר מספר {{ index + 1 }}
+                            </span>
+                            <span v-if="index > 0" class="text-xs font-semibold flex items-center gap-1 opacity-80">
+                                🔒 נעול
+                            </span>
+                            <span v-else class="text-xs font-semibold opacity-80">פעיל ▸</span>
+                        </div>
+
+                        <!-- Card body -->
+                        <div class="flex flex-col p-4 gap-3">
+
                         <!-- Header -->
                         <div class="flex items-start justify-between gap-2">
-                            <h3 class="font-semibold text-gray-800 text-sm leading-snug flex-1">{{ task.title }}</h3>
-                            <span :class="['text-xs font-medium px-2 py-0.5 rounded-full shrink-0', statusColors[task.status]]">
+                            <h3 class="font-semibold text-sm leading-snug flex-1" :class="index === 0 ? 'text-gray-800' : 'text-gray-400'">{{ task.title }}</h3>
+                            <span :class="['text-xs font-medium px-2 py-0.5 rounded-full shrink-0', index === 0 ? statusColors[task.status] : 'bg-gray-100 text-gray-400']">
                                 <EnglishTerm :term="statusLabels[task.status]" />
                             </span>
                         </div>
@@ -431,6 +420,8 @@ function onQuizSubmitted(r: { score: number; total: number; learningGain: number
                                 💡 רמז
                             </button>
                         </div>
+
+                        </div><!-- end card body -->
                     </article>
                 </div>
 
@@ -518,16 +509,6 @@ function onQuizSubmitted(r: { score: number; total: number; learningGain: number
         </main>
 
         </div>
-
-        <!-- ── Knowledge quiz modal ───────────────────────────────────── -->
-        <QuizModal
-            v-if="quizModal.open && team?.current_challenge_id && user?.id"
-            :challenge-id="team.current_challenge_id"
-            :user-id="user.id"
-            :phase="quizModal.phase"
-            @close="quizModal.open = false"
-            @submitted="onQuizSubmitted"
-        />
 
         <!-- ── Toast ──────────────────────────────────────────────────── -->
         <Teleport to="body">

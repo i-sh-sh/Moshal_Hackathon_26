@@ -47,7 +47,6 @@ export function useQuizzes() {
         challengeId: string,
         userId: string,
         phase: QuizPhase,
-        length = 5,
     ): Promise<AttemptWithQuestions> {
         const k = attemptKey(userId, challengeId, phase);
         const existing = attemptsStore.get(k);
@@ -55,7 +54,7 @@ export function useQuizzes() {
 
         let questions: AttemptQuestion[];
         if (phase === 'pre') {
-            // Mix: ~3 role-knowledge + ~2 mission-specific (clamped to length).
+            // 5 task questions (role-knowledge + mission-specific) + 2 teamwork = 7 total
             const role = userRole(userId);
             const rolePool = DEMO_QUIZ_QUESTIONS.filter(
                 (q) => q.scope === 'role' && q.role === role,
@@ -63,16 +62,13 @@ export function useQuizzes() {
             const missionPool = DEMO_QUIZ_QUESTIONS.filter(
                 (q) => q.scope === 'mission' && q.missionId === challengeId,
             );
+            const teamworkPool = DEMO_QUIZ_QUESTIONS.filter(
+                (q) => q.scope === 'teamwork',
+            );
 
-            const target = Math.min(length, rolePool.length + missionPool.length);
-            const targetMission = Math.min(2, missionPool.length, target);
-            const targetRole = Math.min(rolePool.length, target - targetMission);
-
-            const picked = [
-                ...shuffle(rolePool).slice(0, targetRole),
-                ...shuffle(missionPool).slice(0, targetMission),
-            ];
-            const sampled = shuffle(picked);
+            const taskSampled = shuffle([...rolePool, ...missionPool]).slice(0, 5);
+            const teamworkSampled = shuffle(teamworkPool).slice(0, 2);
+            const sampled = shuffle([...taskSampled, ...teamworkSampled]);
 
             questions = sampled.map((q, idx) => ({
                 id: nextId('aq'),
@@ -166,5 +162,10 @@ export function useQuizzes() {
         return [...attemptsStore.values()];
     }
 
-    return { start, submit, getMine, results };
+    function resetAttempts(challengeId: string, userId: string): void {
+        attemptsStore.delete(attemptKey(userId, challengeId, 'pre'));
+        attemptsStore.delete(attemptKey(userId, challengeId, 'post'));
+    }
+
+    return { start, submit, getMine, results, resetAttempts };
 }
