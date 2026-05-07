@@ -268,7 +268,7 @@ ${depthInstruction}
 
         const contextMessages = history.slice(-10).map((m) => ({
             role: m.isBot ? 'assistant' as const : 'user' as const,
-            content: `[${m.senderName}]: ${m.content}`,
+            content: m.isBot ? m.content : `[${m.senderName}]: ${m.content}`,
         }));
 
         try {

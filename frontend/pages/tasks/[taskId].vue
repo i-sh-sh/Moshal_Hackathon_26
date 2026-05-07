@@ -3,6 +3,8 @@ import type { StudentRole } from '~/types/types';
 import { ROLE_LABELS } from '~/types/types';
 import { useUser } from '~/composables/useUser';
 import { useQuizzes } from '~/composables/useQuizzes';
+import { useChat } from '~/composables/useChat';
+import { usePrivateDude } from '~/composables/usePrivateDude';
 import type { TeamMember } from '~/components/TechSchoolSidebar.vue';
 import { getRoleInfo } from '~/utils/roleInfo';
 
@@ -179,6 +181,46 @@ const completedCount = computed(() => completed.value.size);
 const totalSteps = DEFAULT_STEPS.length;
 const allStepsDone = computed(() => completedCount.value === totalSteps);
 const nextStepId = computed(() => DEFAULT_STEPS.find((s) => !completed.value.has(s.id))?.id ?? null);
+
+// ── Chat panels ───────────────────────────────────────────────────────────────
+const chatTab = ref<'group' | 'private'>('group');
+
+const {
+    channel,
+    messages: groupMessages,
+    sending: groupSending,
+    initChannel,
+    sendMessage: groupSend,
+    startPolling: startChatPolling,
+    stopPolling: stopChatPolling,
+} = useChat(
+    computed(() => user.value?.currentTeamId ?? ''),
+    computed(() => user.value?.id ?? ''),
+    computed(() => user.value?.name ?? 'תלמיד'),
+);
+
+const {
+    messages: privateMessages,
+    sending: privateSending,
+    sendMessage: privateSend,
+} = usePrivateDude(
+    computed(() => user.value?.id ?? ''),
+    computed(() => user.value?.name ?? 'תלמיד'),
+);
+
+onMounted(async () => {
+    if (user.value?.currentTeamId) {
+        await initChannel();
+        startChatPolling(5000);
+    }
+});
+onUnmounted(() => stopChatPolling());
+
+// ── Scroll-to-chat ────────────────────────────────────────────────────────────
+const chatSection = ref<HTMLElement | null>(null);
+function scrollToChat() {
+    chatSection.value?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
 </script>
 
 <template>
@@ -415,6 +457,54 @@ const nextStepId = computed(() => DEFAULT_STEPS.find((s) => !completed.value.has
                     </template>
                 </div>
 
+                <!-- ⑤ Chat panels ──────────────────────────────────────── -->
+                <div ref="chatSection" class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden flex flex-col" style="height: 480px">
+                    <!-- Tab switcher -->
+                    <div class="flex border-b border-gray-100">
+                        <button
+                            :class="['flex-1 py-2.5 text-xs font-semibold transition-colors', chatTab === 'group' ? 'bg-indigo-50 text-indigo-700 border-b-2 border-indigo-500' : 'text-gray-500 hover:text-gray-700']"
+                            @click="chatTab = 'group'"
+                        >
+                            💬 צ'אט צוותי
+                        </button>
+                        <button
+                            :class="['flex-1 py-2.5 text-xs font-semibold transition-colors', chatTab === 'private' ? 'bg-indigo-50 text-indigo-700 border-b-2 border-indigo-500' : 'text-gray-500 hover:text-gray-700']"
+                            @click="chatTab = 'private'"
+                        >
+                            🤖 מנטור פרטי
+                        </button>
+                    </div>
+
+                    <!-- Group chat -->
+                    <div v-if="chatTab === 'group'" class="flex-1 min-h-0">
+                        <div v-if="!channel" class="flex items-center justify-center h-full text-sm text-gray-400">
+                            <div class="w-5 h-5 border-4 border-indigo-200 border-t-indigo-500 rounded-full animate-spin mr-2" />
+                            מתחבר לצ'אט...
+                        </div>
+                        <ChatChannel
+                            v-else
+                            class="h-full"
+                            :channel-name="channel.name"
+                            :messages="groupMessages"
+                            :sending="groupSending"
+                            :current-user-id="user?.id ?? ''"
+                            @send="groupSend"
+                        />
+                    </div>
+
+                    <!-- Private DUDE chat -->
+                    <div v-else class="flex-1 min-h-0">
+                        <ChatChannel
+                            class="h-full"
+                            channel-name="DUDE — מנטור אישי 🤖"
+                            :messages="privateMessages"
+                            :sending="privateSending"
+                            :current-user-id="user?.id ?? ''"
+                            @send="privateSend"
+                        />
+                    </div>
+                </div>
+
             </div>
         </main>
 
@@ -449,6 +539,22 @@ const nextStepId = computed(() => DEFAULT_STEPS.find((s) => !completed.value.has
                     {{ toast.msg }}
                 </div>
             </Transition>
+        </Teleport>
+
+        <!-- Floating scroll-to-chat button -->
+        <Teleport to="body">
+            <button
+                v-if="task"
+                class="fixed bottom-6 left-6 z-40 flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white text-xs font-bold px-4 py-2.5 rounded-full shadow-lg transition-all"
+                title="גלול לצ'אט"
+                @click="scrollToChat"
+            >
+                <span>💬</span>
+                <span>צ'אט</span>
+                <svg class="w-3.5 h-3.5 rotate-90" viewBox="0 0 16 16" fill="none">
+                    <path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </button>
         </Teleport>
     </div>
 </template>
