@@ -61,7 +61,7 @@ export class ChatController {
     @Post('transcribe')
     @HttpCode(200)
     @UseInterceptors(FileInterceptor('audio'))
-    async transcribe(@UploadedFile() file: Express.Multer.File) {
+    async transcribe(@UploadedFile() file: any) {
         if (!file) return { text: '' };
         const text = await this.ai.transcribeAudio(file.buffer, file.mimetype);
         return { text };

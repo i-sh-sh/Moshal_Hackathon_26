@@ -228,7 +228,8 @@ async function seed(): Promise<void> {
 
         // ── 6. Quiz question bank — role-knowledge for pm/qa/dev/hardware ──
         // (Display labels: pm→Editor, qa→QA, dev→Designer, hardware→Printer)
-        log('quiz questions...');
+        try {
+            log('quiz questions...');
         const roleQuestions: {
             scope: 'role';
             role: 'pm' | 'qa' | 'dev' | 'hardware';
@@ -274,13 +275,22 @@ async function seed(): Promise<void> {
               options: ['Hit the printer', 'Pause, inspect, and re-slice if needed', 'Run it again identically and hope', 'Delete the file'], correct_index: 1 },
         ];
 
-        // Pull existing prompts to avoid inserting duplicates on re-run.
-        const { data: existing } = await db.from('quiz_questions').select('prompt');
-        const existingPrompts = new Set(((existing as { prompt: string }[]) ?? []).map((r) => r.prompt));
-        const toInsert = roleQuestions.filter((q) => !existingPrompts.has(q.prompt));
-        if (toInsert.length > 0) {
-            const { error: eq } = await db.from('quiz_questions').insert(toInsert);
-            if (eq) throw new Error(`quiz_questions: ${eq.message}`);
+            // Pull existing prompts to avoid inserting duplicates on re-run.
+            const { data: existing, error: fetchErr } = await db.from('quiz_questions').select('prompt');
+            if (fetchErr) throw fetchErr;
+
+            const existingPrompts = new Set(((existing as { prompt: string }[]) ?? []).map((r) => r.prompt));
+            const toInsert = roleQuestions.filter((q) => !existingPrompts.has(q.prompt));
+            if (toInsert.length > 0) {
+                const { error: eq } = await db.from('quiz_questions').insert(toInsert);
+                if (eq) throw eq;
+            }
+        } catch (quizErr: any) {
+            if (quizErr.message?.includes('quiz_questions') || quizErr.code === '42P01' || quizErr.message?.includes('schema cache')) {
+                log('Skipping quiz seeding: quiz_questions table not found in database.');
+            } else {
+                log(`Warning: Quiz seeding skipped due to unexpected error: ${quizErr.message}`);
+            }
         }
 
         // ── 7. Hint counters ─────────────────────────────────────────────
@@ -292,6 +302,26 @@ async function seed(): Promise<void> {
             { user_id: ID.user.tal,   team_id: ID.team.beta,  hint_count: 3 },
         ], { onConflict: 'user_id,team_id' });
         if (e6) throw new Error(`hint counters: ${e6.message}`);
+
+        // 🟦 8. Hint logs — realistic data for analytics
+        log('hint logs...');
+        const { error: e7 } = await db.from('hint_logs').upsert([
+            // Ariel: 4 hints (needs_attention)
+            { id: 'ffff0001-0000-0000-0000-000000000001', user_id: ID.user.ariel, team_id: ID.team.alpha, task_id: ID.task.a_designer, hint_number: 1, hint_text: 'Check your sketch constraints.', points_deducted: 5 },
+            { id: 'ffff0001-0000-0000-0000-000000000002', user_id: ID.user.ariel, team_id: ID.team.alpha, task_id: ID.task.a_designer, hint_number: 2, hint_text: 'Use the Mirror tool for symmetry.', points_deducted: 10 },
+            { id: 'ffff0001-0000-0000-0000-000000000003', user_id: ID.user.ariel, team_id: ID.team.alpha, task_id: ID.task.a_designer, hint_number: 3, hint_text: 'Check for open profiles in the sketch.', points_deducted: 15 },
+            { id: 'ffff0001-0000-0000-0000-000000000004', user_id: ID.user.ariel, team_id: ID.team.alpha, task_id: ID.task.a_designer, hint_number: 4, hint_text: 'Try using the Patch workspace for complex surfaces.', points_deducted: 20 },
+
+            // Noa: 2 hints (watch)
+            { id: 'ffff0002-0000-0000-0000-000000000001', user_id: ID.user.noa, team_id: ID.team.alpha, task_id: ID.task.a_printer, hint_number: 1, hint_text: 'Level the bed before starting.', points_deducted: 5 },
+            { id: 'ffff0002-0000-0000-0000-000000000002', user_id: ID.user.noa, team_id: ID.team.alpha, task_id: ID.task.a_printer, hint_number: 2, hint_text: 'Apply some glue stick to the bed.', points_deducted: 10 },
+
+            // Tal: 3 hints
+            { id: 'ffff0003-0000-0000-0000-000000000001', user_id: ID.user.tal, team_id: ID.team.beta, task_id: ID.task.b_editor, hint_number: 1, hint_text: 'Adjust your retraction settings.', points_deducted: 5 },
+            { id: 'ffff0003-0000-0000-0000-000000000002', user_id: ID.user.tal, team_id: ID.team.beta, task_id: ID.task.b_editor, hint_number: 2, hint_text: 'Check your print temperature.', points_deducted: 10 },
+            { id: 'ffff0003-0000-0000-0000-000000000003', user_id: ID.user.tal, team_id: ID.team.beta, task_id: ID.task.b_editor, hint_number: 3, hint_text: 'Enable z-hop when retracting.', points_deducted: 15 },
+        ], { onConflict: 'id' });
+        if (e7) throw new Error(`hint logs: ${e7.message}`);
 
         log('');
         log('Seed complete.');
