@@ -1,72 +1,78 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { DbService } from '../db/db.service';
+import { SupabaseService } from '../supabase/supabase.service';
 
 @Injectable()
 export class TeamsService {
     private readonly logger = new Logger(TeamsService.name);
 
-    constructor(private readonly db: DbService) {}
+    constructor(private readonly supabase: SupabaseService) {}
 
     async checkAndCompleteTeam(teamId: string, sprintId: string): Promise<void> {
-        const tasks = await this.db.sql<{ status: string }[]>`
-            SELECT status FROM tasks WHERE team_id = ${teamId} AND sprint_id = ${sprintId}
-        `;
-        if (!tasks.length) return;
+        const { data: tasks } = await this.supabase.db
+            .from('tasks')
+            .select('status')
+            .eq('team_id', teamId)
+            .eq('sprint_id', sprintId);
 
-        if (tasks.every((t) => t.status === 'approved')) {
-            await this.db.sql`
-                UPDATE teams SET is_completed = true, sprint_status = 'completed', updated_at = now()
-                WHERE id = ${teamId}
-            `;
+        if (!tasks || tasks.length === 0) return;
+
+        const allApproved = tasks.every((t) => t.status === 'approved');
+
+        if (allApproved) {
+            await this.supabase.db
+                .from('teams')
+                .update({ is_completed: true, sprint_status: 'completed' })
+                .eq('id', teamId);
+
             this.logger.log(`Team ${teamId} completed sprint ${sprintId}`);
         }
     }
 
     async getGroupLeaderboard(): Promise<unknown[]> {
-        return [...await this.db.sql`SELECT * FROM group_leaderboard`];
+        const { data } = await this.supabase.db
+            .from('group_leaderboard')
+            .select('*');
+        return data ?? [];
     }
 
     async getIndividualLeaderboard(): Promise<unknown[]> {
-        return [...await this.db.sql`SELECT * FROM individual_leaderboard WHERE rank <= 3`];
+        const { data } = await this.supabase.db
+            .from('individual_leaderboard')
+            .select('*')
+            .lte('rank', 3);
+        return data ?? [];
     }
 
     async getTeacherAnalytics(): Promise<unknown[]> {
-        return [...await this.db.sql`SELECT * FROM teacher_analytics`];
+        const { data } = await this.supabase.db
+            .from('teacher_analytics')
+            .select('*');
+        return data ?? [];
     }
 
     async getTeamById(id: string): Promise<unknown> {
-        const [row] = await this.db.sql<Record<string, unknown>[]>`
-            SELECT t.id, t.name, t.accumulated_score, t.sprint_status, t.is_completed,
-                   t.current_challenge_id, t.current_sprint_id,
-                   s.id    AS sprint_id,
-                   s.title AS sprint_title,
-                   s.description AS sprint_description
-            FROM teams t
-            LEFT JOIN sprints s ON s.id = t.current_sprint_id
-            WHERE t.id = ${id}
-        `;
-        if (!row) return null;
+        const { data } = await this.supabase.db
+            .from('teams')
+            .select(`
+                id, name, accumulated_score, sprint_status, is_completed,
+                current_challenge_id, current_sprint_id,
+                sprints:current_sprint_id (id, title, description)
+            `)
+            .eq('id', id)
+            .maybeSingle();
 
-        return {
-            id: row.id,
-            name: row.name,
-            accumulated_score: row.accumulated_score,
-            sprint_status: row.sprint_status,
-            is_completed: row.is_completed,
-            current_challenge_id: row.current_challenge_id,
-            current_sprint_id: row.current_sprint_id,
-            sprints: row.sprint_id
-                ? { id: row.sprint_id, title: row.sprint_title, description: row.sprint_description }
-                : null,
-        };
+        return data ?? null;
     }
 
     async getSprintProgress(teamId: string, sprintId: string): Promise<unknown> {
-        const tasks = await this.db.sql<{ status: string }[]>`
-            SELECT status FROM tasks WHERE team_id = ${teamId} AND sprint_id = ${sprintId}
-        `;
-        const total = tasks.length;
-        const approved = tasks.filter((t) => t.status === 'approved').length;
+        const { data: tasks } = await this.supabase.db
+            .from('tasks')
+            .select('status')
+            .eq('team_id', teamId)
+            .eq('sprint_id', sprintId);
+
+        const total = tasks?.length ?? 0;
+        const approved = tasks?.filter((t) => t.status === 'approved').length ?? 0;
         return { total, approved };
     }
 }

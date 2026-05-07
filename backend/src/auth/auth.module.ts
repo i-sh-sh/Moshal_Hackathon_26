@@ -7,7 +7,7 @@
 
 import { Module } from '@nestjs/common';
 import { ConfigService } from '../config/config.service';
-import { DbService } from '../db/db.service';
+import { SupabaseService } from '../supabase/supabase.service';
 import { AuditLogService } from '../audit/audit-log.service';
 import { AuditModule } from '../audit/audit.module';
 import { FirebaseIntegrationModule } from '../integrations/firebase/firebase.module';
@@ -36,17 +36,17 @@ import { AUTH_PROVIDER_TOKEN, AuthProvider } from './providers/auth-provider.int
         RolesGuard,
         {
             provide: AUTH_PROVIDER_TOKEN,
-            inject: [ConfigService, LocalAuthProvider, DbService, AuditLogService, FIREBASE_PROVIDER_TOKEN],
+            inject: [ConfigService, LocalAuthProvider, SupabaseService, AuditLogService, FIREBASE_PROVIDER_TOKEN],
             useFactory: (
                 cfg: ConfigService,
                 local: LocalAuthProvider,
-                db: DbService,
+                _supabase: SupabaseService,
                 _audit: AuditLogService,
                 firebaseAdapter: FirebaseProvider,
             ): AuthProvider => {
                 switch (cfg.auth.provider) {
                     case 'firebase':
-                        return new FirebaseAuthProvider(db, firebaseAdapter);
+                        return new FirebaseAuthProvider(_supabase, firebaseAdapter);
                     case 'google':
                         return new GoogleOAuthProvider();
                     case 'local':
