@@ -55,7 +55,8 @@ export class TeamsService {
 
         // 2. Process Students
         const students: StudentInsight[] = studentAnalytics.map((s) => {
-            const userHints = allHints.filter((h) => h.user_id === s.user_id).length;
+            const studentId = s.id || s.user_id;
+            const userHints = allHints.filter((h) => h.user_id === studentId).length;
             const activeTime = s.total_active_time ?? 0;
             const approved = s.approved_tasks ?? 0;
 
@@ -81,7 +82,7 @@ export class TeamsService {
             }
 
             return {
-                userId: s.user_id,
+                userId: studentId,
                 name: s.name,
                 email: s.email,
                 teamId: s.current_team_id,
