@@ -66,8 +66,9 @@ watch(activeTab, (tab) => {
                     🧠 פרופילים
                 </button>
             </div>
+        </header>
 
-            <!-- ─── MISSIONS TAB ─── -->
+        <!-- ─── MISSIONS TAB ─── -->
             <div v-if="activeTab === 'missions'" class="flex-1 px-8 pb-10">
                 <div class="mb-6">
                     <h1 class="text-2xl font-extrabold text-gray-900">ניהול משימות וצוותים</h1>
@@ -121,6 +122,12 @@ watch(activeTab, (tab) => {
                                     </span>
 
                                     <div class="flex-1" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
         <!-- Analytics -->
         <div v-else-if="activeTab === 'analytics'" class="flex-1 p-6 bg-gray-50">
