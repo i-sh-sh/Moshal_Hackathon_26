@@ -215,6 +215,12 @@ onMounted(async () => {
     }
 });
 onUnmounted(() => stopChatPolling());
+
+// ── Scroll-to-chat ────────────────────────────────────────────────────────────
+const chatSection = ref<HTMLElement | null>(null);
+function scrollToChat() {
+    chatSection.value?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
 </script>
 
 <template>
@@ -452,7 +458,7 @@ onUnmounted(() => stopChatPolling());
                 </div>
 
                 <!-- ⑤ Chat panels ──────────────────────────────────────── -->
-                <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden flex flex-col" style="height: 480px">
+                <div ref="chatSection" class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden flex flex-col" style="height: 480px">
                     <!-- Tab switcher -->
                     <div class="flex border-b border-gray-100">
                         <button
@@ -533,6 +539,22 @@ onUnmounted(() => stopChatPolling());
                     {{ toast.msg }}
                 </div>
             </Transition>
+        </Teleport>
+
+        <!-- Floating scroll-to-chat button -->
+        <Teleport to="body">
+            <button
+                v-if="task"
+                class="fixed bottom-6 left-6 z-40 flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white text-xs font-bold px-4 py-2.5 rounded-full shadow-lg transition-all"
+                title="גלול לצ'אט"
+                @click="scrollToChat"
+            >
+                <span>💬</span>
+                <span>צ'אט</span>
+                <svg class="w-3.5 h-3.5 rotate-90" viewBox="0 0 16 16" fill="none">
+                    <path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </button>
         </Teleport>
     </div>
 </template>
