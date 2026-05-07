@@ -161,3 +161,53 @@ export interface MondayActivity extends BaseActivity {
 }
 
 export type Activity = AIActivity | MondayActivity;
+
+// ── DUDE — Chat & Student Profiles ─────────────────────────────────────────
+
+export interface ChatChannel {
+    id: string;
+    teamId: string;
+    name: string;
+    createdAt: string;
+}
+
+export interface ChatMessage {
+    id: string;
+    channelId: string;
+    senderId: string | null;
+    senderName: string;
+    isBot: boolean;
+    content: string;
+    createdAt: string;
+}
+
+export interface StudentProfile {
+    id: string;
+    userId: string;
+    jargonScore: number;
+    softSkillScore: number;
+    detectedTerms: string[];
+    messagesAnalyzed: number;
+    lastAnalyzedAt: string | null;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface ProfileSnapshot {
+    id: string;
+    userId: string;
+    jargonScore: number;
+    softSkillScore: number;
+    detectedTerms: string[];
+    snapshotAt: string;
+}
+
+export interface TeacherAlert {
+    id: string;
+    userId: string | null;
+    channelId: string | null;
+    alertType: 'knowledge_gap' | 'low_engagement' | 'stuck';
+    message: string;
+    isRead: boolean;
+    createdAt: string;
+}

@@ -1,7 +1,7 @@
 /**
  * Root composition for the TeamSprintUp backend.
  *
- * @version 1.10
+ * @version 1.20
  */
 
 import { Module } from '@nestjs/common';
@@ -23,6 +23,9 @@ import { TeamsModule } from './teams/teams.module';
 import { UsersModule } from './users/users.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
 import { MockMondayModule } from './mock-monday/mock-monday.module';
+import { ChatModule } from './chat/chat.module';
+import { DudeModule } from './dude/dude.module';
+import { StudentProfileModule } from './student-profile/student-profile.module';
 
 @Module({
     imports: [
@@ -44,6 +47,9 @@ import { MockMondayModule } from './mock-monday/mock-monday.module';
         HintsModule,
         WebhooksModule,
         MockMondayModule,
+        ChatModule,
+        StudentProfileModule,
+        DudeModule,
     ],
 })
 export class AppModule {}

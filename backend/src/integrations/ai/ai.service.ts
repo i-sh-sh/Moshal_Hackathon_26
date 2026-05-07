@@ -198,6 +198,61 @@ ${depthInstruction}
 `.trim();
     }
 
+    /**
+     * Generates a DUDE bot reply given a recent message history and the
+     * triggering student message.
+     */
+    async generateDudeResponse(history: { senderName: string; content: string; isBot: boolean }[], trigger: string): Promise<string> {
+        if (!this.client) return this.mockDudeResponse(trigger);
+
+        const systemPrompt =
+            `אתה DUDE — בוט לימודי ידידותי בפלטפורמת Tech School.\n` +
+            `אתה משתתף בצ'אט קבוצתי של צוות תלמידים שעובדים על אתגר תלת-מימד ב-Fusion 360.\n` +
+            `תפקידך: לעודד, להכווין, לעזור להבין מושגים מבלי לתת תשובות ישירות.\n` +
+            `כאשר תלמיד שואל שאלה — ענה בצורה מכוונת ולא ישירה.\n` +
+            `כאשר הצוות שותק — שאל שאלה מעוררת מחשבה.\n` +
+            `שמור על תשובות קצרות (עד 3 משפטים). שלב עברית ואנגלית טכנית.`;
+
+        const contextMessages = history.slice(-10).map((m) => ({
+            role: m.isBot ? 'assistant' as const : 'user' as const,
+            content: `[${m.senderName}]: ${m.content}`,
+        }));
+
+        try {
+            const response = await this.gatekeeper.execute('azure', () =>
+                this.client!.chat.completions.create({
+                    model: this.deployment,
+                    max_tokens: 200,
+                    messages: [
+                        { role: 'system', content: systemPrompt },
+                        ...contextMessages,
+                        { role: 'user', content: trigger },
+                    ],
+                }),
+            );
+            return response.choices[0]?.message?.content ?? 'המשיכו כך! 💪';
+        } catch (err) {
+            this.logger.error('generateDudeResponse failed', (err as Error).message);
+            return this.mockDudeResponse(trigger);
+        }
+    }
+
+    /**
+     * Analyzes a list of student messages and returns jargon / soft-skill scores.
+     * Used by DudeService to update student profiles after channel analysis.
+     */
+    async analyzeConversation(messages: string[], userId: string): Promise<AIAnalysisResult> {
+        const combined = messages.join('\n');
+        return this.analyze({ text: combined, context: { userId, source: 'group_chat' } });
+    }
+
+    private mockDudeResponse(trigger: string): string {
+        if (trigger.endsWith('?')) {
+            return '[DUDE Mock] שאלה מעולה! נסו לחשוב על הכלים שלמדתם בספרינט הנוכחי. (set AZURE_OPENAI keys for real responses)';
+        }
+        return '[DUDE Mock] ממשיכים לעבוד יפה! 💡 זכרו לתעד את ההחלטות שלכם. (set AZURE_OPENAI keys for real responses)';
+    }
+
     private mockHint(ctx: HintContext): string {
         return (
             `[Mock hint #${ctx.hintNumber}] חשוב על איזה כלי ב-Fusion 360 ` +

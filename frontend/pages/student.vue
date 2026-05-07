@@ -2,6 +2,8 @@
 import type { Task, QaChecklist } from '~/types/types';
 import { useUser } from '~/composables/useUser';
 import { useLeaderboard } from '~/composables/useLeaderboard';
+import { useChat } from '~/composables/useChat';
+import { useStudentProfile } from '~/composables/useStudentProfile';
 
 useHead({ title: 'TeamSprintUp — Student Dashboard' });
 
@@ -161,8 +163,26 @@ const statusColors: Record<string, string> = {
 const roleColors: Record<string, string> = { pm: 'bg-purple-500', qa: 'bg-yellow-500', dev: 'bg-blue-500', hardware: 'bg-orange-500' };
 const roleEmoji: Record<string, string> = { pm: '📋', qa: '🔍', dev: '💻', hardware: '🔧' };
 
+// ── Chat (DUDE) ───────────────────────────────────────────────────────────────
+const {
+    channel,
+    messages: chatMessages,
+    sending: chatSending,
+    initChannel,
+    sendMessage,
+    startPolling: startChatPolling,
+    stopPolling: stopChatPolling,
+} = useChat(
+    computed(() => user.value?.currentTeamId ?? ''),
+    computed(() => user.value?.id ?? ''),
+    computed(() => user.value?.name ?? 'תלמיד'),
+);
+
+// ── Student profile ───────────────────────────────────────────────────────────
+const { profile: myProfile, snapshots: mySnapshots, fetchMyProfile, fetchSnapshots } = useStudentProfile();
+
 // ── Tabs ──────────────────────────────────────────────────────────────────────
-const activeTab = ref<'tasks' | 'leaderboard'>('tasks');
+const activeTab = ref<'tasks' | 'leaderboard' | 'chat' | 'progress'>('tasks');
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 onMounted(async () => {
@@ -170,9 +190,20 @@ onMounted(async () => {
     await Promise.all([fetchTeam(), fetchTasks(), fetchLeaderboard()]);
     lastRefreshed.value = new Date();
     refreshTimer = setInterval(refreshAll, 20_000);
+    // Init chat channel and profile in background
+    if (user.value.currentTeamId) {
+        initChannel().then(() => startChatPolling(5000));
+    }
+    if (user.value.id) {
+        fetchMyProfile(user.value.id);
+        fetchSnapshots(user.value.id);
+    }
 });
 
-onUnmounted(() => { if (refreshTimer) clearInterval(refreshTimer); });
+onUnmounted(() => {
+    if (refreshTimer) clearInterval(refreshTimer);
+    stopChatPolling();
+});
 
 async function handleLogout() { logout(); await router.replace('/'); }
 
@@ -243,12 +274,18 @@ onUnmounted(() => clearInterval(tickTimer));
             />
 
             <!-- Tabs -->
-            <div class="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit">
+            <div class="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit flex-wrap">
                 <button :class="['px-4 py-1.5 rounded-lg text-sm font-medium transition-colors', activeTab === 'tasks' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-500 hover:text-gray-700']" @click="activeTab = 'tasks'">
                     📋 My Tasks
                 </button>
                 <button :class="['px-4 py-1.5 rounded-lg text-sm font-medium transition-colors', activeTab === 'leaderboard' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-500 hover:text-gray-700']" @click="activeTab = 'leaderboard'">
                     🏆 Leaderboard
+                </button>
+                <button :class="['px-4 py-1.5 rounded-lg text-sm font-medium transition-colors', activeTab === 'chat' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-500 hover:text-gray-700']" @click="activeTab = 'chat'">
+                    💬 צ'אט DUDE
+                </button>
+                <button :class="['px-4 py-1.5 rounded-lg text-sm font-medium transition-colors', activeTab === 'progress' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-500 hover:text-gray-700']" @click="activeTab = 'progress'">
+                    📈 ההתקדמות שלי
                 </button>
             </div>
 
@@ -318,6 +355,36 @@ onUnmounted(() => clearInterval(tickTimer));
                 </div>
 
                 <HintPanel v-if="user" ref="hintPanel" :user-id="user.id" :team-id="user.currentTeamId ?? ''" />
+            </div>
+
+            <!-- ── Chat (DUDE) tab ───────────────────────────────────── -->
+            <div v-if="activeTab === 'chat'" class="flex flex-col" style="height: 580px">
+                <div v-if="!channel" class="text-center py-12 text-gray-400 text-sm">
+                    <div class="w-6 h-6 border-4 border-indigo-200 border-t-indigo-500 rounded-full animate-spin mx-auto mb-3" />
+                    מתחבר לצ'אט הצוות...
+                </div>
+                <ChatChannel
+                    v-else
+                    class="h-full"
+                    :channel-name="channel.name"
+                    :messages="chatMessages"
+                    :sending="chatSending"
+                    :current-user-id="user?.id ?? ''"
+                    @send="sendMessage"
+                />
+            </div>
+
+            <!-- ── Progress tab ───────────────────────────────────────── -->
+            <div v-if="activeTab === 'progress'" class="flex flex-col gap-5">
+                <div v-if="!myProfile" class="text-center py-12 text-gray-400 text-sm">
+                    אין עדיין פרופיל לימודי. שלח הודעות בצ'אט כדי לאסוף נתונים.
+                </div>
+                <StudentProfileCard
+                    v-else
+                    :profile="myProfile"
+                    :snapshots="mySnapshots"
+                    :user-name="user?.name"
+                />
             </div>
 
             <!-- ── Leaderboard tab ────────────────────────────────────── -->
