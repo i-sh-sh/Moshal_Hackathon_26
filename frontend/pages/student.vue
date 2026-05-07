@@ -325,7 +325,7 @@ onUnmounted(() => { if (tickTimer) clearInterval(tickTimer); });
                     🏆 לוח דירוג
                 </button>
                 <button :class="['px-4 py-1.5 rounded-lg text-sm font-medium transition-colors', activeTab === 'chat' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-500 hover:text-gray-700']" @click="activeTab = 'chat'">
-                    💬 צ'אט DUDE
+                    💬 צ'אט קבוצתי
                 </button>
                 <button :class="['px-4 py-1.5 rounded-lg text-sm font-medium transition-colors', activeTab === 'mentor' ? 'bg-white shadow-sm text-indigo-700' : 'text-gray-500 hover:text-gray-700']" @click="activeTab = 'mentor'">
                     🤖 מנטור פרטי

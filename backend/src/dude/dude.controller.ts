@@ -1,4 +1,4 @@
-import { Body, Controller, HttpCode, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, Post } from '@nestjs/common';
 import { IsArray, IsIn, IsString, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 import { DudeService } from './dude.service';
@@ -59,7 +59,7 @@ export class DudeController {
     /**
      * POST /dude/private/:userId/chat
      * Private 1-on-1 mentor chat with DUDE.
-     * History is managed client-side; no DB persistence.
+     * Both sides are persisted to private_dude_messages.
      */
     @Post('private/:userId/chat')
     @HttpCode(200)
@@ -69,5 +69,24 @@ export class DudeController {
     ) {
         const reply = await this.dude.privateMentorChat(userId, dto.message, dto.history);
         return { reply };
+    }
+
+    /**
+     * GET /dude/private/:userId/messages
+     * Returns the private conversation history for a student (teacher view).
+     */
+    @Get('private/:userId/messages')
+    getPrivateMessages(@Param('userId') userId: string) {
+        return this.chat.getPrivateMessages(userId);
+    }
+
+    /**
+     * POST /dude/private/:userId/analyze
+     * Teacher-triggered analysis of a student's private DUDE conversation.
+     */
+    @Post('private/:userId/analyze')
+    @HttpCode(200)
+    analyzePrivate(@Param('userId') userId: string) {
+        return this.dude.analyzePrivate(userId);
     }
 }
