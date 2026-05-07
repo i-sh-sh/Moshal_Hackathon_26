@@ -68,7 +68,7 @@ async function selectUser(u: ApiUser) {
                         referrerpolicy="no-referrer"
                     />
                 </div>
-                <h1 class="text-2xl font-extrabold text-gray-800 tracking-tight">SprintUp · School Test 01</h1>
+                <h1 class="text-2xl font-extrabold text-gray-800 tracking-tight">SprintUp</h1>
                 <p class="text-gray-500 mt-1.5 text-sm">
                     <span v-if="view === 'landing'">ברוכים הבאים — בחר/י את סוג הממשק</span>
                     <span v-else-if="view === 'students'">ממשק תלמיד — בחר/י משתמש</span>
@@ -83,8 +83,7 @@ async function selectUser(u: ApiUser) {
                     @click="view = 'students'"
                 >
                     <span class="text-5xl">🎒</span>
-                    <span class="text-xl font-bold text-gray-800">ממשק תלמיד</span>
-                    <span class="text-sm text-gray-400">Student Interface</span>
+                    <span class="text-xl font-bold text-gray-800">תלמיד</span>
                 </button>
 
                 <button
@@ -92,8 +91,7 @@ async function selectUser(u: ApiUser) {
                     @click="view = 'teachers'"
                 >
                     <span class="text-5xl">🎓</span>
-                    <span class="text-xl font-bold text-gray-800">ממשק מורה</span>
-                    <span class="text-sm text-gray-400">Teacher Interface</span>
+                    <span class="text-xl font-bold text-gray-800">מורה</span>
                 </button>
             </div>
 

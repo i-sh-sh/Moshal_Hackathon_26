@@ -112,12 +112,16 @@ function onQuizSubmitted(r: { score: number; total: number; learningGain: number
     else postQuizDone.value = true;
     quizModal.value.open = false;
     if (wasPreQuiz) roleInfoOpen.value = true;
-    showToast(
-        r.learningGain !== null
-            ? `Quiz done — score ${r.score}/${r.total} (gain ${r.learningGain >= 0 ? '+' : ''}${r.learningGain})`
-            : `Quiz done — score ${r.score}/${r.total}`,
-        'success',
-    );
+    if (wasPreQuiz) {
+        showToast('הבוחן הושלם בהצלחה', 'success');
+    } else {
+        showToast(
+            r.learningGain !== null
+                ? `Quiz done — score ${r.score}/${r.total} (gain ${r.learningGain >= 0 ? '+' : ''}${r.learningGain})`
+                : `Quiz done — score ${r.score}/${r.total}`,
+            'success',
+        );
+    }
 }
 
 // ── Reset task ────────────────────────────────────────────────────────────────
