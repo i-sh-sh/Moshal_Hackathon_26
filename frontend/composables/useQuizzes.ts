@@ -55,9 +55,25 @@ export function useQuizzes() {
 
         let questions: AttemptQuestion[];
         if (phase === 'pre') {
+            // Mix: ~3 role-knowledge + ~2 mission-specific (clamped to length).
             const role = userRole(userId);
-            const pool = DEMO_QUIZ_QUESTIONS.filter((q) => q.role === role);
-            const sampled = shuffle(pool).slice(0, Math.min(length, pool.length));
+            const rolePool = DEMO_QUIZ_QUESTIONS.filter(
+                (q) => q.scope === 'role' && q.role === role,
+            );
+            const missionPool = DEMO_QUIZ_QUESTIONS.filter(
+                (q) => q.scope === 'mission' && q.missionId === challengeId,
+            );
+
+            const target = Math.min(length, rolePool.length + missionPool.length);
+            const targetMission = Math.min(2, missionPool.length, target);
+            const targetRole = Math.min(rolePool.length, target - targetMission);
+
+            const picked = [
+                ...shuffle(rolePool).slice(0, targetRole),
+                ...shuffle(missionPool).slice(0, targetMission),
+            ];
+            const sampled = shuffle(picked);
+
             questions = sampled.map((q, idx) => ({
                 id: nextId('aq'),
                 questionId: q.id,
