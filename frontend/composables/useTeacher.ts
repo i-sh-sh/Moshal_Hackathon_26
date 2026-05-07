@@ -48,11 +48,55 @@ export function useTeacher() {
             (team as any).currentChallengeId = challengeId;
             (team as any).current_challenge_id = challengeId;
             (team as any).sprintStatus = 'active';
+            (team as any).isCompleted = false;
         }
         for (const c of challenges.value) {
-            (c as any).isActive = c.id === challengeId;
+            const stillUsed = teams.value.some(
+                (t: any) => (t.currentChallengeId ?? t.current_challenge_id) === c.id,
+            );
+            (c as any).isActive = stillUsed;
         }
         return { ok: true, challengeId, teamId: payload.teamId };
+    }
+
+    /** Open a mission for a team — alias of publishChallenge with clearer semantics. */
+    async function openMission(challengeId: string, teamId: string) {
+        return publishChallenge(challengeId, { teamId });
+    }
+
+    /** Close the team's current mission (mark completed). */
+    async function closeMission(teamId: string) {
+        const team = teams.value.find((t) => t.id === teamId);
+        if (!team) return { ok: false };
+        (team as any).sprintStatus = 'completed';
+        (team as any).isCompleted = true;
+        return { ok: true, teamId };
+    }
+
+    /** Re-open a previously completed mission for the team. */
+    async function reopenMission(teamId: string) {
+        const team = teams.value.find((t) => t.id === teamId);
+        if (!team) return { ok: false };
+        (team as any).sprintStatus = 'active';
+        (team as any).isCompleted = false;
+        return { ok: true, teamId };
+    }
+
+    /** Take a team off any mission (idle). */
+    async function clearTeamMission(teamId: string) {
+        const team = teams.value.find((t) => t.id === teamId);
+        if (!team) return { ok: false };
+        (team as any).currentChallengeId = null;
+        (team as any).current_challenge_id = null;
+        (team as any).sprintStatus = 'idle';
+        (team as any).isCompleted = false;
+        for (const c of challenges.value) {
+            const stillUsed = teams.value.some(
+                (t: any) => (t.currentChallengeId ?? t.current_challenge_id) === c.id,
+            );
+            (c as any).isActive = stillUsed;
+        }
+        return { ok: true };
     }
 
     async function assignRoles(
@@ -97,6 +141,10 @@ export function useTeacher() {
         fetchTeams,
         fetchStudents,
         publishChallenge,
+        openMission,
+        closeMission,
+        reopenMission,
+        clearTeamMission,
         assignRoles,
         autoAssignRoles,
     };
