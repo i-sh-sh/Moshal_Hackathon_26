@@ -4,7 +4,9 @@ import { useStudentProfile } from '~/composables/useStudentProfile';
 
 useHead({ title: 'Teacher Dashboard — TeamSprintUp' });
 
-const activeTab = ref<'board' | 'analytics' | 'chats' | 'profiles'>('board');
+type TeacherTab = 'board' | 'analytics' | 'chats' | 'profiles';
+
+const activeTab = ref<TeacherTab>('board');
 
 const { allProfiles, fetchAllProfiles } = useStudentProfile();
 
@@ -16,8 +18,11 @@ const enrichedProfiles = ref<Array<StudentProfile & { name: string }>>([]);
 
 async function loadProfiles() {
     await fetchAllProfiles();
+
     const users = await $fetch<Array<{ id: string; name: string }>>(`${base}/users`).catch(() => []);
+
     const nameMap = new Map(users.map((u) => [u.id, u.name]));
+
     enrichedProfiles.value = allProfiles.value.map((p) => ({
         ...p,
         name: nameMap.get(p.userId) ?? 'תלמיד/ה',
@@ -25,7 +30,9 @@ async function loadProfiles() {
 }
 
 watch(activeTab, (tab) => {
-    if (tab === 'profiles') loadProfiles();
+    if (tab === 'profiles') {
+        loadProfiles();
+    }
 });
 </script>
 
@@ -35,114 +42,117 @@ watch(activeTab, (tab) => {
         <header class="border-b border-gray-700 px-6 h-14 flex items-center gap-4">
             <span class="text-xl">🚀</span>
             <span class="font-bold text-white text-sm tracking-tight">TeamSprintUp</span>
-            <span class="text-xs text-gray-400 font-medium px-2 py-0.5 rounded-full bg-gray-800">Teacher</span>
+            <span class="text-xs text-gray-400 font-medium px-2 py-0.5 rounded-full bg-gray-800">
+                Teacher
+            </span>
 
             <div class="flex-1" />
 
             <!-- Tabs -->
             <div class="flex gap-1 bg-gray-800 p-1 rounded-xl flex-wrap">
                 <button
-                    :class="['px-4 py-1.5 rounded-lg text-xs font-medium transition-colors', activeTab === 'board' ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-gray-200']"
+                    :class="[
+                        'px-4 py-1.5 rounded-lg text-xs font-medium transition-colors',
+                        activeTab === 'board'
+                            ? 'bg-gray-700 text-white'
+                            : 'text-gray-400 hover:text-gray-200',
+                    ]"
                     @click="activeTab = 'board'"
                 >
                     📋 Monday Board
                 </button>
+
                 <button
-                    :class="['px-4 py-1.5 rounded-lg text-xs font-medium transition-colors', activeTab === 'analytics' ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-gray-200']"
+                    :class="[
+                        'px-4 py-1.5 rounded-lg text-xs font-medium transition-colors',
+                        activeTab === 'analytics'
+                            ? 'bg-gray-700 text-white'
+                            : 'text-gray-400 hover:text-gray-200',
+                    ]"
                     @click="activeTab = 'analytics'"
                 >
                     📊 Analytics
                 </button>
+
                 <button
-                    :class="['px-4 py-1.5 rounded-lg text-xs font-medium transition-colors', activeTab === 'chats' ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-gray-200']"
+                    :class="[
+                        'px-4 py-1.5 rounded-lg text-xs font-medium transition-colors',
+                        activeTab === 'chats'
+                            ? 'bg-gray-700 text-white'
+                            : 'text-gray-400 hover:text-gray-200',
+                    ]"
                     @click="activeTab = 'chats'"
                 >
                     💬 צ'אטים DUDE
                 </button>
+
                 <button
-                    :class="['px-4 py-1.5 rounded-lg text-xs font-medium transition-colors', activeTab === 'profiles' ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-gray-200']"
+                    :class="[
+                        'px-4 py-1.5 rounded-lg text-xs font-medium transition-colors',
+                        activeTab === 'profiles'
+                            ? 'bg-gray-700 text-white'
+                            : 'text-gray-400 hover:text-gray-200',
+                    ]"
                     @click="activeTab = 'profiles'"
                 >
                     🧠 פרופילים
                 </button>
             </div>
+        </header>
 
-            <!-- ─── MISSIONS TAB ─── -->
-            <div v-if="activeTab === 'missions'" class="flex-1 px-8 pb-10">
-                <div class="mb-6">
-                    <h1 class="text-2xl font-extrabold text-gray-900">ניהול משימות וצוותים</h1>
-                    <p class="text-sm text-gray-500 mt-1">
-                        פתחו משימה לצוות, שבצו תפקידים, וסגרו את המשימה כשהיא הושלמה.
+        <!-- Board -->
+        <main v-if="activeTab === 'board'" class="flex-1 p-6 bg-gray-50">
+            <div class="max-w-5xl mx-auto">
+                <h1 class="text-xl font-bold text-gray-800 mb-5">Monday Board</h1>
+
+                <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                    <div class="flex items-center gap-3 mb-3">
+                        <span class="text-2xl">📋</span>
+                        <div>
+                            <h2 class="text-base font-bold text-gray-800">לוח המשימות</h2>
+                            <p class="text-sm text-gray-500">
+                                כאן יוצג לוח המשימות של המורה.
+                            </p>
+                        </div>
+                    </div>
+
+                    <p class="text-sm text-gray-500">
+                        הקוד הקודם בטאב הזה השתמש במשתנים שלא מוגדרים בקובץ:
+                        <code>teacherData</code>,
+                        <code>stateBadge</code>,
+                        <code>missionOverallState</code>,
+                        <code>teamMissionState</code>.
+                        לכן השארתי כאן בלוק יציב כדי שה־frontend יעלה.
                     </p>
                 </div>
-
-                <!-- Mission cards -->
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 max-w-6xl">
-                    <div
-                        v-for="c in teacherData.challenges.value"
-                        :key="c.id"
-                        class="bg-white rounded-2xl border border-gray-200 shadow-sm flex flex-col overflow-hidden"
-                    >
-                        <!-- Header strip -->
-                        <div class="px-5 py-3 bg-gradient-to-l from-cyan-50 to-white border-b border-gray-100 flex items-center justify-between">
-                            <div class="flex items-center gap-2">
-                                <span class="text-2xl">🏆</span>
-                                <span class="text-[10px] uppercase font-bold tracking-wider text-gray-400">אתגר</span>
-                            </div>
-                            <span :class="['text-[11px] font-semibold px-2 py-0.5 rounded-full', stateBadge(missionOverallState(c)).cls]">
-                                {{ stateBadge(missionOverallState(c)).text }}
-                            </span>
-                        </div>
-
-                        <!-- Body -->
-                        <div class="p-5 flex flex-col gap-3">
-                            <h3 class="text-base font-extrabold text-gray-900 leading-snug">{{ c.title }}</h3>
-                            <p class="text-xs text-gray-500 leading-relaxed line-clamp-3">{{ c.description }}</p>
-
-                            <div class="flex items-center gap-3 text-xs text-gray-500 mt-1">
-                                <span class="flex items-center gap-1">
-                                    <span>📅</span>
-                                    <span>{{ dateFor(c).toLocaleDateString('he-IL') }}</span>
-                                </span>
-                                <span class="text-gray-300">·</span>
-                                <span>{{ lessonsFor(c) }} שיעורי האתגר</span>
-                            </div>
-
-                            <!-- Per-team rows -->
-                            <div class="mt-2 space-y-2">
-                                <div
-                                    v-for="t in teacherData.teams.value"
-                                    :key="t.id"
-                                    class="bg-gray-50 rounded-xl border border-gray-200 p-3 flex flex-wrap items-center gap-2"
-                                >
-                                    <span class="text-sm font-semibold text-gray-800">👥 {{ t.name }}</span>
-                                    <span :class="['text-[10px] font-semibold px-2 py-0.5 rounded-full', stateBadge(teamMissionState(t, c.id)).cls]">
-                                        {{ stateBadge(teamMissionState(t, c.id)).text }}
-                                    </span>
-
-                                    <div class="flex-1" />
+            </div>
+        </main>
 
         <!-- Analytics -->
-        <div v-else-if="activeTab === 'analytics'" class="flex-1 p-6 bg-gray-50">
+        <main v-if="activeTab === 'analytics'" class="flex-1 p-6 bg-gray-50">
             <div class="max-w-5xl mx-auto">
                 <h1 class="text-xl font-bold text-gray-800 mb-5">Student Analytics</h1>
                 <AnalyticsDashboard />
             </div>
-        </div>
+        </main>
 
         <!-- DUDE Chats -->
-        <div v-else-if="activeTab === 'chats'" class="flex-1 p-6" style="min-height: 0">
+        <main v-if="activeTab === 'chats'" class="flex-1 p-6" style="min-height: 0">
             <div class="max-w-5xl mx-auto h-full" style="height: calc(100vh - 120px)">
                 <TeacherChatPanel />
             </div>
-        </div>
+        </main>
 
         <!-- Student Profiles -->
-        <div v-else-if="activeTab === 'profiles'" class="flex-1 p-6 bg-gray-50">
+        <main v-if="activeTab === 'profiles'" class="flex-1 p-6 bg-gray-50">
             <div class="max-w-5xl mx-auto">
                 <div class="flex items-center gap-3 mb-5">
                     <h1 class="text-xl font-bold text-gray-800">פרופילים לימודיים — DUDE</h1>
-                    <span class="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">{{ enrichedProfiles.length }} תלמידים</span>
+
+                    <span class="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
+                        {{ enrichedProfiles.length }} תלמידים
+                    </span>
+
                     <button
                         class="ml-auto text-xs bg-indigo-600 text-white px-3 py-1.5 rounded-lg hover:bg-indigo-700 transition-colors"
                         @click="loadProfiles"
@@ -164,7 +174,7 @@ watch(activeTab, (tab) => {
                     />
                 </div>
             </div>
-        </div>
+        </main>
     </div>
 </template>
 
@@ -175,6 +185,15 @@ watch(activeTab, (tab) => {
     -webkit-box-orient: vertical;
     overflow: hidden;
 }
-.toast-enter-active, .toast-leave-active { transition: all 0.25s ease; }
-.toast-enter-from, .toast-leave-to { opacity: 0; transform: translate(-50%, 12px); }
+
+.toast-enter-active,
+.toast-leave-active {
+    transition: all 0.25s ease;
+}
+
+.toast-enter-from,
+.toast-leave-to {
+    opacity: 0;
+    transform: translate(-50%, 12px);
+}
 </style>
