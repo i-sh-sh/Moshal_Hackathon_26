@@ -1,6 +1,9 @@
-import { Body, Controller, HttpCode, IsString, Param, Post } from '@nestjs/common';
-import { IsArray, IsIn, ValidateNested } from 'class-validator';
+import { Body, Controller, HttpCode, Param, Post } from '@nestjs/common';
+import { IsArray, IsIn, IsString, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
+import { DudeService } from './dude.service';
+import { ChatService } from '../chat/chat.service';
+import { SendMessageDto } from '../chat/dto/send-message.dto';
 
 class PrivateChatHistoryItem {
     @IsIn(['user', 'assistant'])
@@ -19,9 +22,6 @@ class PrivateChatDto {
     @Type(() => PrivateChatHistoryItem)
     history!: PrivateChatHistoryItem[];
 }
-import { DudeService } from './dude.service';
-import { ChatService } from '../chat/chat.service';
-import { SendMessageDto } from '../chat/dto/send-message.dto';
 
 @Controller('dude')
 export class DudeController {
