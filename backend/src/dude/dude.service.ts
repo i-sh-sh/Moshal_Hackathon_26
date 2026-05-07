@@ -18,6 +18,7 @@ import { AIService } from '../integrations/ai/ai.service';
 import { StudentProfileService } from '../student-profile/student-profile.service';
 
 const DUDE_RESPONSE_INTERVAL = 3;
+const AUTO_ANALYZE_INTERVAL = 10;
 
 @Injectable()
 export class DudeService {
@@ -25,6 +26,8 @@ export class DudeService {
 
     /** In-memory counter of student messages per channel since last DUDE response */
     private readonly msgCounters = new Map<string, number>();
+    /** In-memory counter for auto-analysis trigger */
+    private readonly analyzeCounters = new Map<string, number>();
 
     constructor(
         private readonly chat: ChatService,
@@ -43,6 +46,14 @@ export class DudeService {
         const isQuestion = message.content.trim().endsWith('?');
         const intervalHit = count >= DUDE_RESPONSE_INTERVAL;
 
+        // Auto-analysis trigger
+        const analyzeCount = (this.analyzeCounters.get(channelId) ?? 0) + 1;
+        this.analyzeCounters.set(channelId, analyzeCount);
+        if (analyzeCount >= AUTO_ANALYZE_INTERVAL) {
+            this.analyzeCounters.set(channelId, 0);
+            this.analyzeChannel(channelId).catch(() => undefined);
+        }
+
         if (!isQuestion && !intervalHit) return;
 
         this.msgCounters.set(channelId, 0);
@@ -54,6 +65,17 @@ export class DudeService {
         } catch (err) {
             this.logger.error('DUDE response failed', (err as Error).message);
         }
+    }
+
+    /**
+     * Private 1-on-1 chat with DUDE for a single student.
+     */
+    async privateMentorChat(
+        userId: string,
+        message: string,
+        history: { role: 'user' | 'assistant'; content: string }[],
+    ): Promise<string> {
+        return this.ai.privateMentorChat(message, history);
     }
 
     /**
@@ -81,7 +103,7 @@ export class DudeService {
         for (const { senderId, senderName, messages: texts } of bySender.values()) {
             try {
                 const result = await this.ai.analyzeConversation(texts, senderId);
-                await this.profiles.updateFromAnalysis(senderId, result);
+                await this.profiles.updateFromAnalysis(senderId, result, channelId);
                 summaryParts.push(`${senderName}: jargon=${result.jargonScore}, soft=${result.softSkillScore}`);
                 this.logger.log(`Profile updated for ${senderName} (${senderId})`);
             } catch (err) {

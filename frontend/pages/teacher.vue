@@ -6,7 +6,7 @@ useHead({ title: 'Teacher Dashboard — TeamSprintUp' });
 
 const activeTab = ref<'board' | 'analytics' | 'chats' | 'profiles'>('board');
 
-const { allProfiles, fetchAllProfiles } = useStudentProfile();
+const { allProfiles, alerts, fetchAllProfiles, fetchAlerts, markAlertRead, markAllAlertsRead } = useStudentProfile();
 
 const config = useRuntimeConfig();
 const base = config.public.apiBaseUrl;
@@ -15,7 +15,7 @@ const base = config.public.apiBaseUrl;
 const enrichedProfiles = ref<Array<StudentProfile & { name: string }>>([]);
 
 async function loadProfiles() {
-    await fetchAllProfiles();
+    await Promise.all([fetchAllProfiles(), fetchAlerts()]);
     const users = await $fetch<Array<{ id: string; name: string }>>(`${base}/users`).catch(() => []);
     const nameMap = new Map(users.map((u) => [u.id, u.name]));
     
@@ -27,9 +27,13 @@ async function loadProfiles() {
     }));
 }
 
+const highAlerts = computed(() => alerts.value.filter((a) => !a.isRead));
+
 watch(activeTab, (tab) => {
     if (tab === 'profiles') loadProfiles();
 });
+
+onMounted(() => fetchAlerts());
 </script>
 
 <template>
@@ -63,20 +67,29 @@ watch(activeTab, (tab) => {
                     💬 DUDE Chats
                 </button>
                 <button
-                    :class="['px-4 py-1.5 rounded-lg text-xs font-medium transition-colors', activeTab === 'profiles' ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-gray-200']"
+                    :class="['px-4 py-1.5 rounded-lg text-xs font-medium transition-colors relative', activeTab === 'profiles' ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-gray-200']"
                     @click="activeTab = 'profiles'"
                 >
                     🧠 פרופילים
+                    <span v-if="highAlerts.length" class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center font-bold">
+                        {{ highAlerts.length > 9 ? '9+' : highAlerts.length }}
+                    </span>
                 </button>
             </div>
         </header>
 
-        <!-- Main Content Area -->
-        <main class="flex-1 overflow-auto bg-gray-50 flex flex-col">
-            
-            <!-- 1. Board Tab -->
-            <div v-if="activeTab === 'board'" class="flex-1 flex flex-col">
+        <!-- ─── BOARD TAB ─── -->
+        <div v-if="activeTab === 'board'" class="flex-1 bg-gray-50 p-6 overflow-y-auto">
+            <div class="max-w-6xl mx-auto">
                 <MockMondayBoard />
+            </div>
+        </div>
+
+        <!-- Analytics -->
+        <div v-else-if="activeTab === 'analytics'" class="flex-1 p-6 bg-gray-50">
+            <div class="max-w-5xl mx-auto">
+                <h1 class="text-xl font-bold text-gray-800 mb-5">Student Analytics</h1>
+                <AnalyticsDashboard />
             </div>
 
             <!-- 2. Analytics Tab -->
@@ -90,10 +103,34 @@ watch(activeTab, (tab) => {
                 </div>
             </div>
 
-            <!-- 3. DUDE Chats Tab -->
-            <div v-else-if="activeTab === 'chats'" class="flex-1 p-6" style="min-height: 0">
-                <div class="max-w-6xl mx-auto h-full" style="height: calc(100vh - 140px)">
-                    <TeacherChatPanel />
+                <!-- Alerts banner -->
+                <div v-if="highAlerts.length" class="mb-5 bg-red-50 border border-red-200 rounded-2xl p-4 flex items-start gap-3">
+                    <span class="text-xl shrink-0">🚨</span>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-semibold text-red-800 mb-2">{{ highAlerts.length }} התראות פעילות</p>
+                        <ul class="flex flex-col gap-1.5">
+                            <li
+                                v-for="alert in highAlerts.slice(0, 5)"
+                                :key="alert.id"
+                                class="flex items-center gap-2 text-xs text-red-700"
+                            >
+                                <span class="shrink-0">{{ alert.alertType === 'stuck' ? '🔴' : '🟡' }}</span>
+                                <span class="flex-1">{{ alert.message }}</span>
+                                <button class="shrink-0 text-red-400 hover:text-red-600" @click="markAlertRead(alert.id)">✕</button>
+                            </li>
+                        </ul>
+                        <button
+                            v-if="highAlerts.length > 1"
+                            class="mt-2 text-xs text-red-500 hover:text-red-700 underline"
+                            @click="markAllAlertsRead"
+                        >
+                            סמן הכל כנקרא
+                        </button>
+                    </div>
+                </div>
+
+                <div v-if="!enrichedProfiles.length" class="text-center py-16 text-gray-400 text-sm">
+                    אין פרופילים עדיין. תלמידים יופיעו כאן לאחר שינתחו שיחות.
                 </div>
             </div>
 
