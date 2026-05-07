@@ -20,7 +20,7 @@ onMounted(async () => {
     try {
         rows.value = await $fetch<AnalyticsRow[]>(`${base}/teams/analytics`);
     } catch (e) {
-        error.value = 'Could not load analytics — is the backend running?';
+        error.value = 'לא הצלחנו לטעון אנליטיקה — בדוק שהשרת רץ.';
     } finally {
         loading.value = false;
     }
@@ -34,21 +34,29 @@ function formatTime(seconds: number): string {
     return `${m}m`;
 }
 
+import { ROLE_LABELS } from '~/types/types';
+import type { StudentRole } from '~/types/types';
+
 const roleColors: Record<string, string> = {
-    pm: 'bg-purple-100 text-purple-700',
-    qa: 'bg-yellow-100 text-yellow-700',
-    dev: 'bg-blue-100 text-blue-700',
-    hardware: 'bg-orange-100 text-orange-700',
+    designer: 'bg-blue-100 text-blue-700',
+    editor:   'bg-purple-100 text-purple-700',
+    qa:       'bg-yellow-100 text-yellow-700',
+    printer:  'bg-green-100 text-green-700',
 };
+
+function roleDisplay(role: string | null): string {
+    if (!role) return '';
+    return ROLE_LABELS[role as StudentRole] ?? role.toUpperCase();
+}
 
 const maxApproved = computed(() => Math.max(1, ...rows.value.map((r) => r.approved_tasks)));
 </script>
 
 <template>
-    <div class="flex flex-col gap-5">
+    <div class="flex flex-col gap-5" dir="rtl">
         <!-- Loading -->
         <div v-if="loading" class="flex justify-center py-16">
-            <div class="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
+            <div class="w-8 h-8 border-4 border-[#3CC2EE]/30 border-t-[#3CC2EE] rounded-full animate-spin" />
         </div>
 
         <!-- Error -->
@@ -60,24 +68,24 @@ const maxApproved = computed(() => Math.max(1, ...rows.value.map((r) => r.approv
             <!-- Summary cards -->
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 text-center">
-                    <p class="text-2xl font-extrabold text-indigo-600">{{ rows.length }}</p>
-                    <p class="text-xs text-gray-500 mt-1">Students</p>
+                    <p class="text-2xl font-extrabold text-[#3CC2EE]">{{ rows.length }}</p>
+                    <p class="text-xs text-gray-500 mt-1">תלמידים</p>
                 </div>
                 <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 text-center">
                     <p class="text-2xl font-extrabold text-emerald-600">{{ rows.reduce((s, r) => s + r.approved_tasks, 0) }}</p>
-                    <p class="text-xs text-gray-500 mt-1">Total tasks approved</p>
+                    <p class="text-xs text-gray-500 mt-1">משימות שאושרו</p>
                 </div>
                 <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 text-center">
                     <p class="text-2xl font-extrabold text-amber-500">
                         {{ formatTime(Math.round(rows.reduce((s, r) => s + r.total_active_time, 0) / Math.max(1, rows.length))) }}
                     </p>
-                    <p class="text-xs text-gray-500 mt-1">Avg active time</p>
+                    <p class="text-xs text-gray-500 mt-1">זמן פעילות ממוצע</p>
                 </div>
                 <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 text-center">
                     <p class="text-2xl font-extrabold text-purple-600">
                         {{ rows.filter((r) => r.approved_tasks > 0).length }}
                     </p>
-                    <p class="text-xs text-gray-500 mt-1">Students progressing</p>
+                    <p class="text-xs text-gray-500 mt-1">תלמידים מתקדמים</p>
                 </div>
             </div>
 
@@ -86,12 +94,12 @@ const maxApproved = computed(() => Math.max(1, ...rows.value.map((r) => r.approv
                 <table class="w-full text-sm">
                     <thead>
                         <tr class="bg-gray-50 text-left text-xs text-gray-500 font-semibold uppercase tracking-wide">
-                            <th class="px-5 py-3">Student</th>
-                            <th class="px-5 py-3">Team</th>
-                            <th class="px-5 py-3">Role</th>
-                            <th class="px-5 py-3">Active time</th>
-                            <th class="px-5 py-3">Tasks approved</th>
-                            <th class="px-5 py-3">Tasks/hr</th>
+                            <th class="px-5 py-3">תלמיד</th>
+                            <th class="px-5 py-3">צוות</th>
+                            <th class="px-5 py-3">תפקיד</th>
+                            <th class="px-5 py-3">זמן פעילות</th>
+                            <th class="px-5 py-3">משימות שאושרו</th>
+                            <th class="px-5 py-3">משימות/שעה</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -107,7 +115,7 @@ const maxApproved = computed(() => Math.max(1, ...rows.value.map((r) => r.approv
                                     v-if="row.current_role"
                                     :class="['text-xs font-medium px-2 py-0.5 rounded-full', roleColors[row.current_role] ?? 'bg-gray-100 text-gray-600']"
                                 >
-                                    {{ row.current_role.toUpperCase() }}
+                                    {{ roleDisplay(row.current_role) }}
                                 </span>
                                 <span v-else class="text-gray-300">—</span>
                             </td>
@@ -128,7 +136,7 @@ const maxApproved = computed(() => Math.max(1, ...rows.value.map((r) => r.approv
                             </td>
                         </tr>
                         <tr v-if="!rows.length">
-                            <td colspan="6" class="px-5 py-10 text-center text-gray-400 text-sm">No data yet.</td>
+                            <td colspan="6" class="px-5 py-10 text-center text-gray-400 text-sm">אין נתונים עדיין.</td>
                         </tr>
                     </tbody>
                 </table>

@@ -22,7 +22,7 @@ const sampleUser: AuthenticatedUser = {
     userId: '11111111-1111-1111-1111-111111111111',
     email: 'test@example.com',
     accountType: 'student',
-    currentRole: 'dev',
+    currentRole: 'designer',
     currentTeamId: '22222222-2222-2222-2222-222222222222',
 };
 

@@ -54,7 +54,7 @@ export class RagService {
         return {
             taskTitle:       task?.title       ?? 'Unknown task',
             taskDescription: task?.description ?? '',
-            assignedRole:    task?.assigned_role ?? 'dev',
+            assignedRole:    task?.assigned_role ?? 'designer',
             syllabus,
             teamProgress,
             hintNumber,

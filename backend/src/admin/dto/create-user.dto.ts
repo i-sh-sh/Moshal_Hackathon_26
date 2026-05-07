@@ -38,6 +38,6 @@ export class CreateUserDto {
     teamId?: string;
 
     @IsOptional()
-    @IsIn(['pm', 'qa', 'dev', 'hardware'])
+    @IsIn(['designer', 'editor', 'qa', 'printer'])
     workRole?: WorkRole;
 }

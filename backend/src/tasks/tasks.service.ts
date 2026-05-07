@@ -26,7 +26,7 @@ export interface Task {
     id: string;
     sprint_id: string;
     team_id: string;
-    assigned_role: 'pm' | 'qa' | 'dev' | 'hardware';
+    assigned_role: 'designer' | 'editor' | 'qa' | 'printer';
     title: string;
     description: string | null;
     status: TaskStatus;
@@ -62,7 +62,7 @@ export class TasksService {
             );
         }
 
-        await this.assertUserRole(dto.userId, task.team_id, ['dev', 'hardware']);
+        await this.assertUserRole(dto.userId, task.team_id, ['designer', 'printer']);
 
         const { data, error } = await this.supabase.db
             .from('tasks')
@@ -116,7 +116,7 @@ export class TasksService {
                 `Task is not awaiting PM review (current: "${task.status}")`,
             );
         }
-        await this.assertUserRole(dto.userId, task.team_id, ['pm']);
+        await this.assertUserRole(dto.userId, task.team_id, ['editor']);
 
         if (dto.decision === 'approve') {
             const { data, error } = await this.supabase.db

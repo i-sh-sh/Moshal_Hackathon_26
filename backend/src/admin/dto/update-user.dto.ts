@@ -37,7 +37,7 @@ export class UpdateUserDto {
     teamId?: string | null;
 
     @IsOptional()
-    @IsIn(['pm', 'qa', 'dev', 'hardware'])
+    @IsIn(['designer', 'editor', 'qa', 'printer'])
     workRole?: WorkRole;
 
     @IsOptional()
@@ -56,6 +56,6 @@ export class AssignTeamDto {
     @IsUUID()
     teamId!: string;
 
-    @IsIn(['pm', 'qa', 'dev', 'hardware'])
+    @IsIn(['designer', 'editor', 'qa', 'printer'])
     workRole!: WorkRole;
 }

@@ -75,7 +75,10 @@ function showToast(msg: string, type: 'success' | 'error') {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const roleLabel: Record<string, string> = {
-    pm: 'PM', qa: 'QA', dev: 'Dev', hardware: 'Hardware',
+    designer: 'Designer',
+    editor: 'Editor',
+    qa: 'QA',
+    printer: 'Printer',
 };
 
 function formatTime(iso: string) {
@@ -84,43 +87,39 @@ function formatTime(iso: string) {
 </script>
 
 <template>
-    <div class="mock-monday min-h-screen bg-[#1f1f2e] text-white font-sans">
+    <div class="bg-gray-50 min-h-full" dir="rtl">
 
         <!-- ── Top bar ──────────────────────────────────────────────────── -->
-        <header class="flex items-center gap-4 px-6 py-3 bg-[#292942] border-b border-white/10 shadow-lg">
-            <!-- Monday-style logo -->
-            <div class="flex items-center gap-2 shrink-0">
-                <span class="text-2xl font-black tracking-tight">
-                    <span class="text-[#ff7575]">m</span><span class="text-[#ffcb00]">o</span><span class="text-[#00c875]">n</span><span class="text-white">day</span>
-                    <span class="text-xs font-normal text-white/40 ml-1">simulator</span>
-                </span>
-            </div>
+        <header class="flex items-center gap-4 px-6 py-4 bg-white border-b border-gray-200">
+            <span class="text-sm font-extrabold text-gray-900">לוח משימות</span>
 
             <!-- Challenge selector -->
             <select
                 v-model="selectedChallengeId"
-                class="ml-4 bg-white/10 border border-white/20 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#579bfc]"
+                class="mr-4 bg-white border border-gray-300 text-gray-900 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-300"
             >
                 <option v-for="c in challenges" :key="c.id" :value="c.id">
                     {{ c.title }} {{ c.isActive ? '🟢' : '⚪' }}
                 </option>
             </select>
 
+            <div class="flex-1" />
+
             <!-- Kickoff button -->
             <button
-                class="ml-auto flex items-center gap-2 bg-[#00c875] hover:bg-[#00b368] text-black font-semibold px-4 py-1.5 rounded-lg text-sm transition-colors disabled:opacity-50"
+                class="flex items-center gap-2 bg-[#3CC2EE] hover:bg-[#27b3df] text-white font-bold px-4 py-1.5 rounded-full text-sm transition-colors disabled:opacity-50 shadow-sm"
                 :disabled="actionLoading === selectedChallengeId"
                 @click="kickoff"
             >
                 <span v-if="actionLoading === selectedChallengeId">⏳</span>
                 <span v-else>🚀</span>
-                Kickoff Challenge
+                הפעל אתגר
             </button>
 
             <!-- Refresh -->
             <button
-                class="text-white/50 hover:text-white text-lg transition-colors"
-                title="Refresh board"
+                class="text-gray-400 hover:text-gray-700 text-lg transition-colors"
+                title="רענן לוח"
                 @click="loadBoard"
             >
                 ↻
@@ -129,15 +128,15 @@ function formatTime(iso: string) {
 
         <!-- ── Board title ────────────────────────────────────────────────── -->
         <div class="px-6 py-4 flex items-center gap-3">
-            <h1 class="text-xl font-bold text-white/90">
-                {{ board?.challengeTitle ?? 'Loading...' }}
+            <h1 class="text-xl font-extrabold text-gray-900">
+                {{ board?.challengeTitle ?? 'טוען...' }}
             </h1>
-            <span class="text-xs text-white/40">Teacher Dashboard</span>
+            <span class="text-xs text-gray-400">לוח מורה</span>
         </div>
 
         <!-- ── Loading ───────────────────────────────────────────────────── -->
-        <div v-if="loading" class="flex justify-center py-20 text-white/40 text-sm">
-            Loading board...
+        <div v-if="loading" class="flex justify-center py-20 text-gray-400 text-sm">
+            טוען לוח...
         </div>
 
         <!-- ── Kanban columns ─────────────────────────────────────────────── -->
@@ -156,10 +155,10 @@ function formatTime(iso: string) {
                         class="w-3 h-3 rounded-full shrink-0"
                         :style="{ background: col.color }"
                     />
-                    <span class="text-xs font-semibold text-white/70 uppercase tracking-wide">
+                    <span class="text-xs font-bold text-gray-600 uppercase tracking-wide">
                         {{ col.label }}
                     </span>
-                    <span class="ml-auto text-xs text-white/30 bg-white/10 rounded-full px-2">
+                    <span class="mr-auto text-xs text-gray-500 bg-gray-100 rounded-full px-2 font-semibold">
                         {{ col.items.length }}
                     </span>
                 </div>
@@ -168,23 +167,23 @@ function formatTime(iso: string) {
                 <div
                     v-for="item in col.items"
                     :key="item.id"
-                    class="bg-[#292942] border border-white/10 rounded-xl p-3 flex flex-col gap-2 hover:border-white/25 transition-colors"
+                    class="bg-white border border-gray-200 rounded-xl p-3 flex flex-col gap-2 hover:border-[#3CC2EE]/40 hover:shadow-sm transition-all shadow-sm"
                 >
                     <!-- Item title + role badge -->
                     <div class="flex items-start justify-between gap-1">
-                        <p class="text-sm font-medium text-white/90 leading-snug">{{ item.title }}</p>
+                        <p class="text-sm font-semibold text-gray-800 leading-snug">{{ item.title }}</p>
                         <span
-                            class="text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0"
-                            :style="{ background: col.color + '33', color: col.color }"
+                            class="text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0"
+                            :style="{ background: col.color + '20', color: col.color }"
                         >
                             {{ roleLabel[item.assignedRole] ?? item.assignedRole }}
                         </span>
                     </div>
 
                     <!-- Team + time -->
-                    <div class="flex items-center gap-2 text-xs text-white/40">
+                    <div class="flex items-center gap-2 text-xs text-gray-400">
                         <span>👥 {{ item.teamName }}</span>
-                        <span class="ml-auto">{{ formatTime(item.submittedAt) }}</span>
+                        <span class="mr-auto">{{ formatTime(item.submittedAt) }}</span>
                     </div>
 
                     <!-- Submission link -->
@@ -192,9 +191,9 @@ function formatTime(iso: string) {
                         v-if="item.submissionUrl"
                         :href="item.submissionUrl"
                         target="_blank"
-                        class="text-xs text-[#579bfc] hover:underline truncate"
+                        class="text-xs text-[#3CC2EE] hover:underline truncate"
                     >
-                        🔗 View submission
+                        🔗 צפייה בהגשה
                     </a>
 
                     <!-- Teacher action buttons — only on Pending Teacher Review column -->
@@ -203,18 +202,18 @@ function formatTime(iso: string) {
                         class="flex gap-2 mt-1"
                     >
                         <button
-                            class="flex-1 text-xs font-semibold py-1 rounded-lg bg-[#00c875]/20 text-[#00c875] hover:bg-[#00c875]/40 transition-colors disabled:opacity-40"
+                            class="flex-1 text-xs font-bold py-1 rounded-full bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition-colors disabled:opacity-40"
                             :disabled="actionLoading === item.id"
                             @click="approveTask(item.id)"
                         >
-                            {{ actionLoading === item.id ? '...' : '✓ Approve' }}
+                            {{ actionLoading === item.id ? '...' : '✓ אשר' }}
                         </button>
                         <button
-                            class="flex-1 text-xs font-semibold py-1 rounded-lg bg-[#ff7575]/20 text-[#ff7575] hover:bg-[#ff7575]/40 transition-colors disabled:opacity-40"
+                            class="flex-1 text-xs font-bold py-1 rounded-full bg-red-100 text-red-700 hover:bg-red-200 transition-colors disabled:opacity-40"
                             :disabled="actionLoading === item.id"
                             @click="rejectTask(item.id)"
                         >
-                            {{ actionLoading === item.id ? '...' : '✕ Reject' }}
+                            {{ actionLoading === item.id ? '...' : '✕ דחה' }}
                         </button>
                     </div>
                 </div>
@@ -222,9 +221,9 @@ function formatTime(iso: string) {
                 <!-- Empty state -->
                 <div
                     v-if="col.items.length === 0"
-                    class="border-2 border-dashed border-white/10 rounded-xl py-8 text-center text-xs text-white/25"
+                    class="border-2 border-dashed border-gray-200 rounded-xl py-8 text-center text-xs text-gray-300"
                 >
-                    No items
+                    אין פריטים
                 </div>
             </div>
         </div>
@@ -233,8 +232,8 @@ function formatTime(iso: string) {
         <Transition name="toast">
             <div
                 v-if="toast"
-                class="fixed bottom-6 left-1/2 -translate-x-1/2 px-5 py-3 rounded-xl text-sm font-medium shadow-xl z-50"
-                :class="toast.type === 'success' ? 'bg-[#00c875] text-black' : 'bg-[#ff7575] text-white'"
+                class="fixed bottom-6 left-1/2 -translate-x-1/2 px-5 py-3 rounded-2xl text-sm font-bold shadow-xl z-50"
+                :class="toast.type === 'success' ? 'bg-emerald-500 text-white' : 'bg-red-500 text-white'"
             >
                 {{ toast.msg }}
             </div>
