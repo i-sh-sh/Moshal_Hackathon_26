@@ -12,7 +12,7 @@
  */
 
 import { Injectable, Logger } from '@nestjs/common';
-import { DbService } from '../db/db.service';
+import { SupabaseService } from '../supabase/supabase.service';
 
 export type AuditAction =
     | 'auth.login.success'
@@ -47,24 +47,20 @@ export interface AuditEntry {
 export class AuditLogService {
     private readonly logger = new Logger(AuditLogService.name);
 
-    constructor(private readonly db: DbService) {}
+    constructor(private readonly supabase: SupabaseService) {}
 
     async write(entry: AuditEntry): Promise<void> {
         try {
-            await this.db.sql`
-                insert into audit_logs
-                    (user_id, actor_email, action, entity_type, entity_id,
-                     metadata, ip_address, user_agent)
-                values
-                    (${entry.userId ?? null},
-                     ${entry.actorEmail ?? null},
-                     ${entry.action},
-                     ${entry.entityType ?? null},
-                     ${entry.entityId ?? null},
-                     ${entry.metadata ? JSON.stringify(entry.metadata) : null}::jsonb,
-                     ${entry.ipAddress ?? null},
-                     ${entry.userAgent ?? null})
-            `;
+            await this.supabase.db.from('audit_logs').insert({
+                user_id: entry.userId ?? null,
+                actor_email: entry.actorEmail ?? null,
+                action: entry.action,
+                entity_type: entry.entityType ?? null,
+                entity_id: entry.entityId ?? null,
+                metadata: entry.metadata ?? null,
+                ip_address: entry.ipAddress ?? null,
+                user_agent: entry.userAgent ?? null,
+            });
         } catch (err) {
             this.logger.error(
                 `Failed to write audit log (action=${entry.action}): ${(err as Error).message}`,
@@ -73,22 +69,21 @@ export class AuditLogService {
     }
 
     async recent(limit: number = 100): Promise<unknown[]> {
-        return this.db.sql`
-            select id, user_id, actor_email, action, entity_type, entity_id,
-                   metadata, ip_address, created_at
-            from audit_logs
-            order by created_at desc
-            limit ${Math.min(Math.max(limit, 1), 500)}
-        `;
+        const { data } = await this.supabase.db
+            .from('audit_logs')
+            .select('id, user_id, actor_email, action, entity_type, entity_id, metadata, ip_address, created_at')
+            .order('created_at', { ascending: false })
+            .limit(Math.min(Math.max(limit, 1), 500));
+        return data ?? [];
     }
 
     async forUser(userId: string, limit: number = 50): Promise<unknown[]> {
-        return this.db.sql`
-            select id, action, entity_type, entity_id, metadata, ip_address, created_at
-            from audit_logs
-            where user_id = ${userId}
-            order by created_at desc
-            limit ${Math.min(Math.max(limit, 1), 200)}
-        `;
+        const { data } = await this.supabase.db
+            .from('audit_logs')
+            .select('id, action, entity_type, entity_id, metadata, ip_address, created_at')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false })
+            .limit(Math.min(Math.max(limit, 1), 200));
+        return data ?? [];
     }
 }

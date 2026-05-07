@@ -9,7 +9,7 @@
  * @version 1.10
  */
 
-import postgres from 'postgres';
+import { createClient } from '@supabase/supabase-js';
 import * as bcrypt from 'bcryptjs';
 import * as dotenv from 'dotenv';
 
@@ -56,12 +56,11 @@ const ID = {
 } as const;
 
 async function seed(): Promise<void> {
-    const url = process.env.DATABASE_URL;
-    if (!url) { err('DATABASE_URL not set'); process.exit(1); }
-    const sql = postgres(url, {
-        ssl: url.includes('sslmode=disable') ? false : 'require',
-        max: 1,
-    });
+    const url = process.env.SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!url || !key) { err('SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not set'); process.exit(1); }
+
+    const db = createClient(url, key);
 
     try {
         log(`Hashing demo password (cost ${process.env.BCRYPT_COST ?? 12})...`);
@@ -70,131 +69,113 @@ async function seed(): Promise<void> {
 
         // ── 1. Challenge ─────────────────────────────────────────────────
         log('challenges...');
-        await sql`
-            insert into challenges (id, title, description, is_active, order_index, monday_board_id)
-            values (${ID.challenge},
-                    ${'Tech School 3D Design — שנה א׳'},
-                    ${'תוכנית תלת-מימד לנבחרת Tech School, שנה א׳. CBL בהלימה למודל SEM. שלושה אתגרים קבוצתיים.'},
-                    true, 1, null)
-            on conflict (id) do update set title = excluded.title, is_active = excluded.is_active
-        `;
+        const { error: e1 } = await db.from('challenges').upsert({
+            id: ID.challenge,
+            title: 'Tech School 3D Design — שנה א׳',
+            description: 'תוכנית תלת-מימד לנבחרת Tech School, שנה א׳. CBL בהלימה למודל SEM. שלושה אתגרים קבוצתיים.',
+            is_active: true,
+            order_index: 1,
+            monday_board_id: null,
+        }, { onConflict: 'id' });
+        if (e1) throw new Error(`challenges: ${e1.message}`);
 
         // ── 2. Sprints ───────────────────────────────────────────────────
         log('sprints...');
-        await sql`
-            insert into sprints (id, challenge_id, title, description, order_index) values
-            (${ID.sprint.gift},     ${ID.challenge}, ${'אתגר 01 — מתנה'},       ${'יסודות התלת-מימד.'},     1),
-            (${ID.sprint.games},    ${ID.challenge}, ${'אתגר 02 — משחקים'},     ${'מספר רכיבים, שילוב טכניקות.'}, 2),
-            (${ID.sprint.branding}, ${ID.challenge}, ${'אתגר 03 — מיתוג אישי'}, ${'קנה מידה, חיבורים, מיתוג.'},  3)
-            on conflict (id) do update set title = excluded.title
-        `;
+        const { error: e2 } = await db.from('sprints').upsert([
+            { id: ID.sprint.gift,     challenge_id: ID.challenge, title: 'אתגר 01 — מתנה',       description: 'יסודות התלת-מימד.',     order_index: 1 },
+            { id: ID.sprint.games,    challenge_id: ID.challenge, title: 'אתגר 02 — משחקים',     description: 'מספר רכיבים, שילוב טכניקות.', order_index: 2 },
+            { id: ID.sprint.branding, challenge_id: ID.challenge, title: 'אתגר 03 — מיתוג אישי', description: 'קנה מידה, חיבורים, מיתוג.',  order_index: 3 },
+        ], { onConflict: 'id' });
+        if (e2) throw new Error(`sprints: ${e2.message}`);
 
         // ── 3. Teams ─────────────────────────────────────────────────────
         log('teams...');
-        await sql`
-            insert into teams (id, name, accumulated_score, sprint_status, is_completed, current_challenge_id, current_sprint_id) values
-            (${ID.team.alpha}, ${'Team Alpha — נבחרת אלפא'}, 150, 'active', false, ${ID.challenge}, ${ID.sprint.gift}),
-            (${ID.team.beta},  ${'Team Beta — נבחרת בטא'},   120, 'active', false, ${ID.challenge}, ${ID.sprint.gift})
-            on conflict (id) do update set
-                accumulated_score = excluded.accumulated_score,
-                sprint_status = excluded.sprint_status,
-                current_challenge_id = excluded.current_challenge_id,
-                current_sprint_id = excluded.current_sprint_id
-        `;
+        const { error: e3 } = await db.from('teams').upsert([
+            { id: ID.team.alpha, name: 'Team Alpha — נבחרת אלפא', accumulated_score: 150, sprint_status: 'active', is_completed: false, current_challenge_id: ID.challenge, current_sprint_id: ID.sprint.gift },
+            { id: ID.team.beta,  name: 'Team Beta — נבחרת בטא',   accumulated_score: 120, sprint_status: 'active', is_completed: false, current_challenge_id: ID.challenge, current_sprint_id: ID.sprint.gift },
+        ], { onConflict: 'id' });
+        if (e3) throw new Error(`teams: ${e3.message}`);
 
         // ── 4. Users (8 students + 1 teacher + 1 admin, all with same hash) ──
         log('users...');
-        await sql`
-            insert into users (id, name, email, password_hash, account_type, auth_provider,
-                               current_team_id, current_role, total_active_time, is_active) values
-            (${ID.user.yael},    ${'Yael Mizrahi'},   ${'yael@techschool.demo'},   ${hash}, 'student','local', ${ID.team.alpha}, 'pm',       3240, true),
-            (${ID.user.david},   ${'David Cohen'},    ${'david@techschool.demo'},  ${hash}, 'student','local', ${ID.team.alpha}, 'qa',       2880, true),
-            (${ID.user.noa},     ${'Noa Ben-David'},  ${'noa@techschool.demo'},    ${hash}, 'student','local', ${ID.team.alpha}, 'dev',      4200, true),
-            (${ID.user.ariel},   ${'Ariel Levy'},     ${'ariel@techschool.demo'},  ${hash}, 'student','local', ${ID.team.alpha}, 'hardware', 3600, true),
-            (${ID.user.maya},    ${'Maya Shapiro'},   ${'maya@techschool.demo'},   ${hash}, 'student','local', ${ID.team.beta},  'pm',       2700, true),
-            (${ID.user.omer},    ${'Omer Peretz'},    ${'omer@techschool.demo'},   ${hash}, 'student','local', ${ID.team.beta},  'qa',       3100, true),
-            (${ID.user.lior},    ${'Lior Katz'},      ${'lior@techschool.demo'},   ${hash}, 'student','local', ${ID.team.beta},  'dev',      2400, true),
-            (${ID.user.tal},     ${'Tal Friedman'},   ${'tal@techschool.demo'},    ${hash}, 'student','local', ${ID.team.beta},  'hardware', 3900, true),
-            (${ID.user.teacher}, ${'Teacher Demo'},   ${'teacher@techschool.demo'},${hash}, 'teacher','local', null,             null,       0,    true),
-            (${ID.user.admin},   ${'Admin Demo'},     ${'admin@techschool.demo'},  ${hash}, 'admin',  'local', null,             null,       0,    true)
-            on conflict (id) do update set
-                name = excluded.name,
-                password_hash = excluded.password_hash,
-                account_type = excluded.account_type,
-                auth_provider = excluded.auth_provider,
-                current_team_id = excluded.current_team_id,
-                current_role = excluded.current_role,
-                is_active = excluded.is_active
-        `;
+        const { error: e4 } = await db.from('users').upsert([
+            { id: ID.user.yael,    name: 'Yael Mizrahi',   email: 'yael@techschool.demo',    password_hash: hash, account_type: 'student', auth_provider: 'local', current_team_id: ID.team.alpha, current_role: 'pm',       total_active_time: 3240, is_active: true },
+            { id: ID.user.david,   name: 'David Cohen',    email: 'david@techschool.demo',   password_hash: hash, account_type: 'student', auth_provider: 'local', current_team_id: ID.team.alpha, current_role: 'qa',       total_active_time: 2880, is_active: true },
+            { id: ID.user.noa,     name: 'Noa Ben-David',  email: 'noa@techschool.demo',     password_hash: hash, account_type: 'student', auth_provider: 'local', current_team_id: ID.team.alpha, current_role: 'dev',      total_active_time: 4200, is_active: true },
+            { id: ID.user.ariel,   name: 'Ariel Levy',     email: 'ariel@techschool.demo',   password_hash: hash, account_type: 'student', auth_provider: 'local', current_team_id: ID.team.alpha, current_role: 'hardware', total_active_time: 3600, is_active: true },
+            { id: ID.user.maya,    name: 'Maya Shapiro',   email: 'maya@techschool.demo',    password_hash: hash, account_type: 'student', auth_provider: 'local', current_team_id: ID.team.beta,  current_role: 'pm',       total_active_time: 2700, is_active: true },
+            { id: ID.user.omer,    name: 'Omer Peretz',    email: 'omer@techschool.demo',    password_hash: hash, account_type: 'student', auth_provider: 'local', current_team_id: ID.team.beta,  current_role: 'qa',       total_active_time: 3100, is_active: true },
+            { id: ID.user.lior,    name: 'Lior Katz',      email: 'lior@techschool.demo',    password_hash: hash, account_type: 'student', auth_provider: 'local', current_team_id: ID.team.beta,  current_role: 'dev',      total_active_time: 2400, is_active: true },
+            { id: ID.user.tal,     name: 'Tal Friedman',   email: 'tal@techschool.demo',     password_hash: hash, account_type: 'student', auth_provider: 'local', current_team_id: ID.team.beta,  current_role: 'hardware', total_active_time: 3900, is_active: true },
+            { id: ID.user.teacher, name: 'Teacher Demo',   email: 'teacher@techschool.demo', password_hash: hash, account_type: 'teacher', auth_provider: 'local', current_team_id: null,          current_role: null,       total_active_time: 0,    is_active: true },
+            { id: ID.user.admin,   name: 'Admin Demo',     email: 'admin@techschool.demo',   password_hash: hash, account_type: 'admin',   auth_provider: 'local', current_team_id: null,          current_role: null,       total_active_time: 0,    is_active: true },
+        ], { onConflict: 'id' });
+        if (e4) throw new Error(`users: ${e4.message}`);
 
         // ── 5. Tasks (same fixtures as before) ───────────────────────────
         log('tasks...');
-        const qaA = JSON.stringify({ isCompleted: true, hasErrors: false, improvements: ['הוסף chamfer לפינות חדות'] });
-        const qaB = JSON.stringify({ isCompleted: true, hasErrors: false, improvements: ['תמיכות נראות מינימליות'] });
-        const qaC = JSON.stringify({ isCompleted: true, hasErrors: false, improvements: [] });
-        const qaD = JSON.stringify({ isCompleted: true, hasErrors: true,  improvements: ['הקטן צפיפות תמיכות', 'בדוק זווית overhang'] });
+        const qaA = { isCompleted: true, hasErrors: false, improvements: ['הוסף chamfer לפינות חדות'] };
+        const qaB = { isCompleted: true, hasErrors: false, improvements: ['תמיכות נראות מינימליות'] };
+        const qaC = { isCompleted: true, hasErrors: false, improvements: [] };
+        const qaD = { isCompleted: true, hasErrors: true,  improvements: ['הקטן צפיפות תמיכות', 'בדוק זווית overhang'] };
 
-        await sql`
-            insert into tasks (id, sprint_id, team_id, assigned_role, title, description, status,
-                               submission_url, submitted_by, reviewed_by_qa, reviewed_by_pm,
-                               qa_checklist, qa_notes, pm_notes) values
-            (${ID.task.a1_hw}, ${ID.sprint.gift}, ${ID.team.alpha}, 'hardware',
-             ${'עיצוב אובייקט מתנה ב-Fusion 360'},
-             ${'צרו אובייקט תלת-מימדי בעל משמעות אישית. גובה מקס׳ 10ס״מ. ללא תמיכות.'},
-             'approved', ${'https://drive.google.com/demo/gift-design-alpha'},
-             ${ID.user.ariel}, ${ID.user.david}, ${ID.user.yael}, ${qaA}::jsonb,
-             ${'המודל תקין.'}, ${'מאושר להדפסה.'}),
-            (${ID.task.a1_dev}, ${ID.sprint.gift}, ${ID.team.alpha}, 'dev',
-             ${'ייצוא קובץ STL ואופטימיזציה'},
-             ${'ייצאו ל-STL, בדקו עובי דפנות מינ׳ 1.2מ״מ.'},
-             'teacher_review', ${'https://drive.google.com/demo/stl-alpha'},
-             ${ID.user.noa}, ${ID.user.david}, ${ID.user.yael}, ${qaB}::jsonb,
-             ${'קובץ נקי.'}, ${'שולח למורה לאישור.'}),
-            (${ID.task.a1_qa}, ${ID.sprint.gift}, ${ID.team.alpha}, 'qa',
-             ${'בדיקת QA מלאה'},
-             ${'בדקו מידות, עובי דפנות, סימולציית הדפסה ב-Slicer.'},
-             'qa_review', ${'https://drive.google.com/demo/qa-checklist-alpha'},
-             ${ID.user.david}, null, null, null::jsonb, null, null),
-            (${ID.task.a1_pm}, ${ID.sprint.gift}, ${ID.team.alpha}, 'pm',
-             ${'הגשה ל-LMS + פרזנטציה'},
-             ${'רכזו תוצרים, העלו ל-LMS, בנו מצגת קצרה.'},
-             'pending', null, null, null, null, null::jsonb, null, null),
-            (${ID.task.b1_hw}, ${ID.sprint.gift}, ${ID.team.beta}, 'hardware',
-             ${'מחזיק מפתחות מותאם'},
-             ${'עצבו מחזיק עם ייחוד אישי. חור 6מ״מ, גובה מקס׳ 8ס״מ.'},
-             'approved', ${'https://drive.google.com/demo/keychain-beta'},
-             ${ID.user.tal}, ${ID.user.omer}, ${ID.user.maya}, ${qaC}::jsonb,
-             null, ${'עיצוב מרשים.'}),
-            (${ID.task.b1_dev}, ${ID.sprint.gift}, ${ID.team.beta}, 'dev',
-             ${'הגדרות Slicer + תמיכות'},
-             ${'layer 0.2מ״מ, infill 20%, supports אוטו׳.'},
-             'pm_review', ${'https://drive.google.com/demo/slicer-beta'},
-             ${ID.user.lior}, ${ID.user.omer}, null, ${qaD}::jsonb,
-             ${'בעיות קלות.'}, null),
-            (${ID.task.b1_qa}, ${ID.sprint.gift}, ${ID.team.beta}, 'qa',
-             ${'אימות מידות'},
-             ${'גובה 8ס״מ, חור 6מ״מ, אין חלקים נפרדים.'},
-             'pending', null, null, null, null, null::jsonb, null, null),
-            (${ID.task.b1_pm}, ${ID.sprint.gift}, ${ID.team.beta}, 'pm',
-             ${'תיעוד תהליך + הגשה'},
-             ${'תעדו 3 איטרציות, שגיאות, לקחים.'},
-             'pending', null, null, null, null, null::jsonb, null, null)
-            on conflict (id) do update set status = excluded.status
-        `;
+        const { error: e5 } = await db.from('tasks').upsert([
+            { id: ID.task.a1_hw, sprint_id: ID.sprint.gift, team_id: ID.team.alpha, assigned_role: 'hardware',
+              title: 'עיצוב אובייקט מתנה ב-Fusion 360',
+              description: 'צרו אובייקט תלת-מימדי בעל משמעות אישית. גובה מקס׳ 10ס״מ. ללא תמיכות.',
+              status: 'approved', submission_url: 'https://drive.google.com/demo/gift-design-alpha',
+              submitted_by: ID.user.ariel, reviewed_by_qa: ID.user.david, reviewed_by_pm: ID.user.yael,
+              qa_checklist: qaA, qa_notes: 'המודל תקין.', pm_notes: 'מאושר להדפסה.' },
+            { id: ID.task.a1_dev, sprint_id: ID.sprint.gift, team_id: ID.team.alpha, assigned_role: 'dev',
+              title: 'ייצוא קובץ STL ואופטימיזציה',
+              description: 'ייצאו ל-STL, בדקו עובי דפנות מינ׳ 1.2מ״מ.',
+              status: 'teacher_review', submission_url: 'https://drive.google.com/demo/stl-alpha',
+              submitted_by: ID.user.noa, reviewed_by_qa: ID.user.david, reviewed_by_pm: ID.user.yael,
+              qa_checklist: qaB, qa_notes: 'קובץ נקי.', pm_notes: 'שולח למורה לאישור.' },
+            { id: ID.task.a1_qa, sprint_id: ID.sprint.gift, team_id: ID.team.alpha, assigned_role: 'qa',
+              title: 'בדיקת QA מלאה',
+              description: 'בדקו מידות, עובי דפנות, סימולציית הדפסה ב-Slicer.',
+              status: 'qa_review', submission_url: 'https://drive.google.com/demo/qa-checklist-alpha',
+              submitted_by: ID.user.david },
+            { id: ID.task.a1_pm, sprint_id: ID.sprint.gift, team_id: ID.team.alpha, assigned_role: 'pm',
+              title: 'הגשה ל-LMS + פרזנטציה',
+              description: 'רכזו תוצרים, העלו ל-LMS, בנו מצגת קצרה.',
+              status: 'pending' },
+            { id: ID.task.b1_hw, sprint_id: ID.sprint.gift, team_id: ID.team.beta, assigned_role: 'hardware',
+              title: 'מחזיק מפתחות מותאם',
+              description: 'עצבו מחזיק עם ייחוד אישי. חור 6מ״מ, גובה מקס׳ 8ס״מ.',
+              status: 'approved', submission_url: 'https://drive.google.com/demo/keychain-beta',
+              submitted_by: ID.user.tal, reviewed_by_qa: ID.user.omer, reviewed_by_pm: ID.user.maya,
+              qa_checklist: qaC, pm_notes: 'עיצוב מרשים.' },
+            { id: ID.task.b1_dev, sprint_id: ID.sprint.gift, team_id: ID.team.beta, assigned_role: 'dev',
+              title: 'הגדרות Slicer + תמיכות',
+              description: 'layer 0.2מ״מ, infill 20%, supports אוטו׳.',
+              status: 'pm_review', submission_url: 'https://drive.google.com/demo/slicer-beta',
+              submitted_by: ID.user.lior, reviewed_by_qa: ID.user.omer,
+              qa_checklist: qaD, qa_notes: 'בעיות קלות.' },
+            { id: ID.task.b1_qa, sprint_id: ID.sprint.gift, team_id: ID.team.beta, assigned_role: 'qa',
+              title: 'אימות מידות',
+              description: 'גובה 8ס״מ, חור 6מ״מ, אין חלקים נפרדים.',
+              status: 'pending' },
+            { id: ID.task.b1_pm, sprint_id: ID.sprint.gift, team_id: ID.team.beta, assigned_role: 'pm',
+              title: 'תיעוד תהליך + הגשה',
+              description: 'תעדו 3 איטרציות, שגיאות, לקחים.',
+              status: 'pending' },
+        ], { onConflict: 'id' });
+        if (e5) throw new Error(`tasks: ${e5.message}`);
 
         // ── 6. Hint counters ─────────────────────────────────────────────
         log('hint counters...');
-        await sql`
-            insert into team_hint_counters (user_id, team_id, hint_count) values
-            (${ID.user.noa},   ${ID.team.alpha}, 2),
-            (${ID.user.ariel}, ${ID.team.alpha}, 4),
-            (${ID.user.lior},  ${ID.team.beta},  1),
-            (${ID.user.tal},   ${ID.team.beta},  3)
-            on conflict (user_id, team_id) do update set hint_count = excluded.hint_count
-        `;
+        const { error: e6 } = await db.from('team_hint_counters').upsert([
+            { user_id: ID.user.noa,   team_id: ID.team.alpha, hint_count: 2 },
+            { user_id: ID.user.ariel, team_id: ID.team.alpha, hint_count: 4 },
+            { user_id: ID.user.lior,  team_id: ID.team.beta,  hint_count: 1 },
+            { user_id: ID.user.tal,   team_id: ID.team.beta,  hint_count: 3 },
+        ], { onConflict: 'user_id,team_id' });
+        if (e6) throw new Error(`hint counters: ${e6.message}`);
 
         log('');
-        log('✅  Seed complete.');
+        log('Seed complete.');
         log('');
         log(`Demo password for every account: ${DEMO_PASSWORD}`);
         log('');
@@ -206,8 +187,6 @@ async function seed(): Promise<void> {
     } catch (e) {
         err(`Seed failed: ${(e as Error).message}`);
         process.exit(1);
-    } finally {
-        await sql.end();
     }
 }
 

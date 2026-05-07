@@ -11,7 +11,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
 import { ConfigService } from '../../config/config.service';
-import { DbService } from '../../db/db.service';
+import { SupabaseService } from '../../supabase/supabase.service';
 import {
     AccountDisabledError,
     AccountLockedError,
@@ -51,7 +51,7 @@ export class LocalAuthProvider implements AuthProvider {
     private readonly logger = new Logger(LocalAuthProvider.name);
 
     constructor(
-        private readonly db: DbService,
+        private readonly supabase: SupabaseService,
         private readonly config: ConfigService,
         private readonly audit: AuditLogService,
     ) {}
@@ -63,14 +63,13 @@ export class LocalAuthProvider implements AuthProvider {
         const email = input.email.toLowerCase().trim();
         await this.assertNotLocked(email);
 
-        const [row] = await this.db.sql<UserRow[]>`
-            select id, email, name, password_hash, account_type, is_active,
-                   auth_provider, current_team_id, current_role
-            from users
-            where lower(email) = ${email}
-            limit 1
-        `;
-        if (!row || !row.password_hash || row.auth_provider !== 'local') {
+        const { data: row } = await this.supabase.db
+            .from('users')
+            .select('id, email, name, password_hash, account_type, is_active, auth_provider, current_team_id, current_role')
+            .eq('email', email)
+            .maybeSingle();
+
+        if (!row || !(row as UserRow).password_hash || (row as UserRow).auth_provider !== 'local') {
             await this.recordFailure(email);
             await this.audit.write({
                 action: 'auth.login.failed',
@@ -80,13 +79,13 @@ export class LocalAuthProvider implements AuthProvider {
             });
             throw new InvalidCredentialsError();
         }
-        if (!row.is_active) throw new AccountDisabledError();
+        if (!(row as UserRow).is_active) throw new AccountDisabledError();
 
-        const ok = await bcrypt.compare(input.password, row.password_hash);
+        const ok = await bcrypt.compare(input.password, (row as UserRow).password_hash!);
         if (!ok) {
             await this.recordFailure(email);
             await this.audit.write({
-                userId: row.id,
+                userId: (row as UserRow).id,
                 action: 'auth.login.failed',
                 actorEmail: email,
                 ipAddress: ctx.ip,
@@ -96,25 +95,31 @@ export class LocalAuthProvider implements AuthProvider {
         }
 
         await this.clearFailures(email);
-        return this.toAuthenticated(row);
+        return this.toAuthenticated(row as UserRow);
     }
 
     async register(input: RegisterInput): Promise<AuthenticatedUser> {
         if (!PASSWORD_RX.test(input.password)) throw new WeakPasswordError();
         const email = input.email.toLowerCase().trim();
-        const [existing] = await this.db.sql<{ id: string }[]>`
-            select id from users where lower(email) = ${email} limit 1
-        `;
+
+        const { data: existing } = await this.supabase.db
+            .from('users')
+            .select('id')
+            .eq('email', email)
+            .maybeSingle();
+
         if (existing) throw new EmailAlreadyTakenError();
 
         const hash = await bcrypt.hash(input.password, this.config.auth.bcryptCost);
-        const [row] = await this.db.sql<UserRow[]>`
-            insert into users (name, email, password_hash, account_type, auth_provider)
-            values (${input.name}, ${email}, ${hash}, 'student', 'local')
-            returning id, email, name, password_hash, account_type, is_active,
-                      auth_provider, current_team_id, current_role
-        `;
-        return this.toAuthenticated(row);
+
+        const { data: row, error } = await this.supabase.db
+            .from('users')
+            .insert({ name: input.name, email, password_hash: hash, account_type: 'student', auth_provider: 'local' })
+            .select('id, email, name, password_hash, account_type, is_active, auth_provider, current_team_id, current_role')
+            .single();
+
+        if (error) throw new Error(error.message);
+        return this.toAuthenticated(row as UserRow);
     }
 
     /** Hash a password — used by AdminService when creating/resetting users. */
@@ -134,18 +139,18 @@ export class LocalAuthProvider implements AuthProvider {
     }
 
     private async assertNotLocked(email: string): Promise<void> {
-        const [row] = await this.db.sql<{ locked_until: string | null }[]>`
-            select locked_until from failed_login_attempts where email = ${email}
-        `;
+        const { data: row } = await this.supabase.db
+            .from('failed_login_attempts')
+            .select('locked_until')
+            .eq('email', email)
+            .maybeSingle();
+
         if (row?.locked_until) {
             const remaining = Math.ceil(
                 (new Date(row.locked_until).getTime() - Date.now()) / 1000,
             );
             if (remaining > 0) {
-                await this.audit.write({
-                    action: 'auth.login.locked',
-                    actorEmail: email,
-                });
+                await this.audit.write({ action: 'auth.login.locked', actorEmail: email });
                 throw new AccountLockedError(remaining);
             }
         }
@@ -153,30 +158,39 @@ export class LocalAuthProvider implements AuthProvider {
 
     private async recordFailure(email: string): Promise<void> {
         const { maxFailedLogins, lockoutWindowSeconds } = this.config.auth;
-        await this.db.sql`
-            insert into failed_login_attempts (email, attempts, last_attempt_at)
-            values (${email}, 1, now())
-            on conflict (email) do update
-            set attempts = case
-                    when failed_login_attempts.last_attempt_at <
-                         now() - (${lockoutWindowSeconds} || ' seconds')::interval
-                    then 1
-                    else failed_login_attempts.attempts + 1
-                end,
-                last_attempt_at = now(),
-                locked_until = case
-                    when failed_login_attempts.attempts + 1 >= ${maxFailedLogins}
-                    then now() + (${lockoutWindowSeconds} || ' seconds')::interval
-                    else failed_login_attempts.locked_until
-                end
-        `.catch((e: Error) =>
-            this.logger.error(`recordFailure failed: ${e.message}`),
-        );
+
+        try {
+            const { data: existing } = await this.supabase.db
+                .from('failed_login_attempts')
+                .select('attempts, last_attempt_at')
+                .eq('email', email)
+                .maybeSingle();
+
+            const now = new Date();
+            const windowStart = new Date(Date.now() - lockoutWindowSeconds * 1000);
+            const withinWindow = existing && new Date(existing.last_attempt_at) > windowStart;
+            const newAttempts = withinWindow ? (existing!.attempts + 1) : 1;
+            const lockedUntil = newAttempts >= maxFailedLogins
+                ? new Date(Date.now() + lockoutWindowSeconds * 1000).toISOString()
+                : null;
+
+            await this.supabase.db
+                .from('failed_login_attempts')
+                .upsert({
+                    email,
+                    attempts: newAttempts,
+                    last_attempt_at: now.toISOString(),
+                    locked_until: lockedUntil,
+                }, { onConflict: 'email' });
+        } catch (e) {
+            this.logger.error(`recordFailure failed: ${(e as Error).message}`);
+        }
     }
 
     private async clearFailures(email: string): Promise<void> {
-        await this.db.sql`
-            delete from failed_login_attempts where email = ${email}
-        `.catch(() => undefined);
+        await this.supabase.db
+            .from('failed_login_attempts')
+            .delete()
+            .eq('email', email);
     }
 }

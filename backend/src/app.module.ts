@@ -6,7 +6,7 @@
 
 import { Module } from '@nestjs/common';
 import { ConfigModule } from './config/config.module';
-import { DbModule } from './db/db.module';
+import { SupabaseModule } from './supabase/supabase.module';
 import { GatekeeperModule } from './gatekeeper/gatekeeper.module';
 import { AuditModule } from './audit/audit.module';
 import { AIModule } from './integrations/ai/ai.module';
@@ -27,20 +27,17 @@ import { MockMondayModule } from './mock-monday/mock-monday.module';
 @Module({
     imports: [
         ConfigModule,
-        DbModule,
+        SupabaseModule,
         GatekeeperModule,
         AuditModule,
-        // Integrations (mock or real adapter chosen by env)
         AIModule,
         MondayApiModule,
         FirebaseIntegrationModule,
         StorageIntegrationModule,
         TechSchoolIntegrationModule,
-        // Auth + admin (additive — existing routes keep working)
         AuthModule,
         AdminModule,
         ActivityModule,
-        // Existing domain modules
         TeamsModule,
         UsersModule,
         TasksModule,

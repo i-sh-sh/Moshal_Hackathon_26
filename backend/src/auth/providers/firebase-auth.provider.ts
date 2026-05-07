@@ -10,7 +10,7 @@
  */
 
 import { Inject, Injectable } from '@nestjs/common';
-import { DbService } from '../../db/db.service';
+import { SupabaseService } from '../../supabase/supabase.service';
 import {
     AccountDisabledError,
     InvalidCredentialsError,
@@ -40,7 +40,7 @@ export class FirebaseAuthProvider implements AuthProvider {
     readonly name = 'firebase' as const;
 
     constructor(
-        private readonly db: DbService,
+        private readonly supabase: SupabaseService,
         @Inject(FIREBASE_PROVIDER_TOKEN) private readonly firebase: FirebaseProvider,
     ) {}
 
@@ -50,21 +50,22 @@ export class FirebaseAuthProvider implements AuthProvider {
         const decoded = await this.firebase.verifyIdToken(input.idToken);
         const email = decoded.email.toLowerCase().trim();
 
-        const [row] = await this.db.sql<UserRow[]>`
-            select id, email, account_type, is_active, current_team_id, current_role
-            from users
-            where lower(email) = ${email} and auth_provider = 'firebase'
-            limit 1
-        `;
+        const { data: row } = await this.supabase.db
+            .from('users')
+            .select('id, email, account_type, is_active, current_team_id, current_role')
+            .eq('email', email)
+            .eq('auth_provider', 'firebase')
+            .maybeSingle();
+
         if (!row) throw new InvalidCredentialsError();
-        if (!row.is_active) throw new AccountDisabledError();
+        if (!(row as UserRow).is_active) throw new AccountDisabledError();
 
         return {
-            userId: row.id,
-            email: row.email,
-            accountType: row.account_type,
-            currentRole: row.current_role,
-            currentTeamId: row.current_team_id,
+            userId: (row as UserRow).id,
+            email: (row as UserRow).email,
+            accountType: (row as UserRow).account_type,
+            currentRole: (row as UserRow).current_role,
+            currentTeamId: (row as UserRow).current_team_id,
         };
     }
 }

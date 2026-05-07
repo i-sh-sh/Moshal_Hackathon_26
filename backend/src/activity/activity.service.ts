@@ -9,7 +9,7 @@
  */
 
 import { Injectable, Logger } from '@nestjs/common';
-import { DbService } from '../db/db.service';
+import { SupabaseService } from '../supabase/supabase.service';
 import { MAX_DELTA_SECONDS } from './dto/heartbeat.dto';
 
 export interface ActivitySnapshot {
@@ -22,16 +22,14 @@ export interface ActivitySnapshot {
 export class ActivityService {
     private readonly logger = new Logger(ActivityService.name);
 
-    constructor(private readonly db: DbService) {}
+    constructor(private readonly supabase: SupabaseService) {}
 
     /** Called from the auth flow on successful login. */
     async recordLogin(userId: string): Promise<void> {
-        await this.db.sql`
-            update users set last_login_at = now(), updated_at = now()
-            where id = ${userId}
-        `.catch((e: Error) =>
-            this.logger.error(`recordLogin failed for ${userId}: ${e.message}`),
-        );
+        await this.supabase.db
+            .from('users')
+            .update({ last_login_at: new Date().toISOString() })
+            .eq('id', userId);
     }
 
     /**
@@ -41,37 +39,47 @@ export class ActivityService {
      */
     async heartbeat(userId: string, deltaSeconds: number): Promise<ActivitySnapshot> {
         const clamped = Math.max(1, Math.min(deltaSeconds, MAX_DELTA_SECONDS));
-        const [row] = await this.db.sql<
-            { id: string; total_active_time: number; last_login_at: string | null }[]
-        >`
-            update users
-            set total_active_time = total_active_time + ${clamped},
-                last_login_at = coalesce(last_login_at, now()),
-                updated_at = now()
-            where id = ${userId}
-            returning id, total_active_time, last_login_at
-        `;
-        if (!row) {
-            throw new Error(`Heartbeat for unknown user ${userId}`);
-        }
+
+        // Fetch current value, increment in JS, then update
+        const { data: current } = await this.supabase.db
+            .from('users')
+            .select('id, total_active_time, last_login_at')
+            .eq('id', userId)
+            .maybeSingle();
+
+        if (!current) throw new Error(`Heartbeat for unknown user ${userId}`);
+
+        const newTime = (current.total_active_time ?? 0) + clamped;
+
+        const { data: row } = await this.supabase.db
+            .from('users')
+            .update({
+                total_active_time: newTime,
+                last_login_at: current.last_login_at ?? new Date().toISOString(),
+            })
+            .eq('id', userId)
+            .select('id, total_active_time, last_login_at')
+            .single();
+
         return {
-            userId: row.id,
-            totalActiveTime: row.total_active_time,
-            lastLoginAt: row.last_login_at,
+            userId: (row as any).id,
+            totalActiveTime: (row as any).total_active_time,
+            lastLoginAt: (row as any).last_login_at,
         };
     }
 
     async getActivity(userId: string): Promise<ActivitySnapshot> {
-        const [row] = await this.db.sql<
-            { id: string; total_active_time: number; last_login_at: string | null }[]
-        >`
-            select id, total_active_time, last_login_at from users where id = ${userId}
-        `;
+        const { data: row } = await this.supabase.db
+            .from('users')
+            .select('id, total_active_time, last_login_at')
+            .eq('id', userId)
+            .maybeSingle();
+
         if (!row) throw new Error(`Unknown user ${userId}`);
         return {
-            userId: row.id,
-            totalActiveTime: row.total_active_time,
-            lastLoginAt: row.last_login_at,
+            userId: (row as any).id,
+            totalActiveTime: (row as any).total_active_time,
+            lastLoginAt: (row as any).last_login_at,
         };
     }
 }

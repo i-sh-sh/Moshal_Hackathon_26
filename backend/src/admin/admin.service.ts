@@ -9,7 +9,7 @@
  */
 
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { DbService } from '../db/db.service';
+import { SupabaseService } from '../supabase/supabase.service';
 import { AuditLogService } from '../audit/audit-log.service';
 import { LocalAuthProvider } from '../auth/providers/local-auth.provider';
 import { RefreshTokenService } from '../auth/refresh-token.service';
@@ -57,86 +57,88 @@ interface UserRow {
 @Injectable()
 export class AdminService {
     constructor(
-        private readonly db: DbService,
+        private readonly supabase: SupabaseService,
         private readonly audit: AuditLogService,
         private readonly local: LocalAuthProvider,
         private readonly refresh: RefreshTokenService,
     ) {}
 
     async listUsers(): Promise<AdminUserView[]> {
-        const rows = await this.db.sql<UserRow[]>`
-            select id, name, email, account_type, is_active, auth_provider,
-                   current_team_id, current_role, total_active_time,
-                   last_login_at, created_at
-            from users
-            order by name
-        `;
-        return rows.map(this.toView);
+        const { data } = await this.supabase.db
+            .from('users')
+            .select('id, name, email, account_type, is_active, auth_provider, current_team_id, current_role, total_active_time, last_login_at, created_at')
+            .order('name');
+        return ((data ?? []) as UserRow[]).map(this.toView);
     }
 
     async getUser(id: string): Promise<AdminUserView> {
-        const [row] = await this.db.sql<UserRow[]>`
-            select id, name, email, account_type, is_active, auth_provider,
-                   current_team_id, current_role, total_active_time,
-                   last_login_at, created_at
-            from users where id = ${id}
-        `;
-        if (!row) throw new NotFoundException(`User ${id} not found`);
-        return this.toView(row);
+        const { data } = await this.supabase.db
+            .from('users')
+            .select('id, name, email, account_type, is_active, auth_provider, current_team_id, current_role, total_active_time, last_login_at, created_at')
+            .eq('id', id)
+            .maybeSingle();
+        if (!data) throw new NotFoundException(`User ${id} not found`);
+        return this.toView(data as UserRow);
     }
 
     async createUser(dto: CreateUserDto, actor: AuthenticatedUser): Promise<AdminUserView> {
         const email = dto.email.toLowerCase().trim();
-        const [existing] = await this.db.sql<{ id: string }[]>`
-            select id from users where lower(email) = ${email}
-        `;
+
+        const { data: existing } = await this.supabase.db
+            .from('users')
+            .select('id')
+            .eq('email', email)
+            .maybeSingle();
         if (existing) throw new EmailAlreadyTakenError();
 
         const passwordHash = await this.local.hashPassword(dto.password);
-        const [row] = await this.db.sql<UserRow[]>`
-            insert into users
-                (name, email, password_hash, account_type, auth_provider,
-                 current_team_id, current_role, is_active)
-            values
-                (${dto.name}, ${email}, ${passwordHash}, ${dto.accountType}, 'local',
-                 ${dto.teamId ?? null}, ${dto.workRole ?? null}, true)
-            returning id, name, email, account_type, is_active, auth_provider,
-                      current_team_id, current_role, total_active_time,
-                      last_login_at, created_at
-        `;
+
+        const { data: row, error } = await this.supabase.db
+            .from('users')
+            .insert({
+                name: dto.name,
+                email,
+                password_hash: passwordHash,
+                account_type: dto.accountType,
+                auth_provider: 'local',
+                current_team_id: dto.teamId ?? null,
+                current_role: dto.workRole ?? null,
+                is_active: true,
+            })
+            .select('id, name, email, account_type, is_active, auth_provider, current_team_id, current_role, total_active_time, last_login_at, created_at')
+            .single();
+
+        if (error) throw new Error(error.message);
+
         await this.audit.write({
             userId: actor.userId,
             actorEmail: actor.email,
             action: 'admin.user.created',
             entityType: 'user',
-            entityId: row.id,
-            metadata: { newUserEmail: row.email, accountType: row.account_type },
+            entityId: (row as UserRow).id,
+            metadata: { newUserEmail: (row as UserRow).email, accountType: (row as UserRow).account_type },
         });
-        return this.toView(row);
+        return this.toView(row as UserRow);
     }
 
     async updateUser(id: string, dto: UpdateUserDto, actor: AuthenticatedUser): Promise<AdminUserView> {
         const before = await this.getUser(id);
 
-        // Build the SET clause incrementally — only touched fields are updated
-        const sets: { col: string; val: unknown }[] = [];
-        if (dto.name !== undefined) sets.push({ col: 'name', val: dto.name });
-        if (dto.email !== undefined) sets.push({ col: 'email', val: dto.email.toLowerCase().trim() });
-        if (dto.accountType !== undefined) sets.push({ col: 'account_type', val: dto.accountType });
-        if (dto.teamId !== undefined) sets.push({ col: 'current_team_id', val: dto.teamId });
-        if (dto.workRole !== undefined) sets.push({ col: 'current_role', val: dto.workRole });
-        if (dto.isActive !== undefined) sets.push({ col: 'is_active', val: dto.isActive });
+        const updates: Record<string, unknown> = {};
+        if (dto.name !== undefined) updates['name'] = dto.name;
+        if (dto.email !== undefined) updates['email'] = dto.email.toLowerCase().trim();
+        if (dto.accountType !== undefined) updates['account_type'] = dto.accountType;
+        if (dto.teamId !== undefined) updates['current_team_id'] = dto.teamId;
+        if (dto.workRole !== undefined) updates['current_role'] = dto.workRole;
+        if (dto.isActive !== undefined) updates['is_active'] = dto.isActive;
 
-        if (sets.length === 0) return before;
+        if (Object.keys(updates).length === 0) return before;
 
-        // postgres tagged-template lets us interpolate identifiers via sql.unsafe — but
-        // since the column names come from a closed allowlist above, that's safe.
-        for (const s of sets) {
-            await this.db.sql.unsafe(
-                `update users set ${s.col} = $1, updated_at = now() where id = $2`,
-                [s.val, id] as never,
-            );
-        }
+        await this.supabase.db
+            .from('users')
+            .update(updates)
+            .eq('id', id);
+
         const updated = await this.getUser(id);
 
         // Security-relevant changes invalidate sessions
@@ -161,10 +163,10 @@ export class AdminService {
     async resetPassword(id: string, dto: ResetPasswordDto, actor: AuthenticatedUser): Promise<void> {
         await this.getUser(id); // 404 if missing
         const hash = await this.local.hashPassword(dto.newPassword);
-        await this.db.sql`
-            update users set password_hash = ${hash}, updated_at = now()
-            where id = ${id}
-        `;
+        await this.supabase.db
+            .from('users')
+            .update({ password_hash: hash })
+            .eq('id', id);
         await this.refresh.revokeAllForUser(id, 'password_reset');
         await this.audit.write({
             userId: actor.userId,
@@ -177,13 +179,10 @@ export class AdminService {
 
     async assignTeam(id: string, dto: AssignTeamDto, actor: AuthenticatedUser): Promise<AdminUserView> {
         await this.getUser(id);
-        await this.db.sql`
-            update users
-            set current_team_id = ${dto.teamId},
-                current_role = ${dto.workRole},
-                updated_at = now()
-            where id = ${id}
-        `;
+        await this.supabase.db
+            .from('users')
+            .update({ current_team_id: dto.teamId, current_role: dto.workRole })
+            .eq('id', id);
         await this.audit.write({
             userId: actor.userId,
             actorEmail: actor.email,
