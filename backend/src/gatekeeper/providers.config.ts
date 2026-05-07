@@ -26,7 +26,7 @@ const def = (
 });
 
 export const DEFAULT_PROVIDER_CONFIGS: Readonly<Record<ProviderName, ProviderConfig>> = {
-    anthropic:  def('anthropic',  { rateLimitPerMinute: 50, timeoutMs: 30_000, maxRetries: 2 }),
+    azure:      def('azure',      { rateLimitPerMinute: 60, timeoutMs: 30_000, maxRetries: 2 }),
     monday:     def('monday',     { rateLimitPerMinute: 60, timeoutMs: 10_000, maxRetries: 3 }),
     firebase:   def('firebase',   { rateLimitPerMinute: 600, timeoutMs: 5_000, maxRetries: 1 }),
     storage:    def('storage',    { rateLimitPerMinute: 200, timeoutMs: 30_000, maxRetries: 3 }),
@@ -39,7 +39,7 @@ export function applyOverrides(
 ): Readonly<Record<ProviderName, ProviderConfig>> {
     const out: Record<ProviderName, ProviderConfig> = { ...base };
     if (overrides.anthropicRpm) {
-        out.anthropic = { ...out.anthropic, rateLimitPerMinute: overrides.anthropicRpm };
+        out.azure = { ...out.azure, rateLimitPerMinute: overrides.anthropicRpm };
     }
     if (overrides.mondayRpm) {
         out.monday = { ...out.monday, rateLimitPerMinute: overrides.mondayRpm };

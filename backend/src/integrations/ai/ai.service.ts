@@ -1,18 +1,17 @@
 /**
- * AIService — domain-level methods backed by Anthropic Claude.
+ * AIService — domain-level methods backed by Azure OpenAI.
  *
- * Lives under `integrations/` because every call goes outbound to the
- * Anthropic API. All requests are routed through the GatekeeperService —
- * never call `this.client` directly outside `gatekeeper.execute(...)`.
+ * All requests are routed through GatekeeperService — never call
+ * `this.client` directly outside `gatekeeper.execute(...)`.
  *
  * Falls back to a deterministic mock string when no API key is configured,
  * so local dev and offline demos still work end-to-end.
  *
- * @version 1.10
+ * @version 1.20
  */
 
 import { Injectable, Logger } from '@nestjs/common';
-import Anthropic from '@anthropic-ai/sdk';
+import { AzureOpenAI } from 'openai';
 import type { HintContext } from '../../rag/rag.service';
 import { ConfigService } from '../../config/config.service';
 import { GatekeeperService } from '../../gatekeeper/gatekeeper.service';
@@ -35,20 +34,31 @@ const HINT_UNAVAILABLE = 'Hint unavailable right now. Try again in a moment.';
 @Injectable()
 export class AIService {
     private readonly logger = new Logger(AIService.name);
-    private readonly client: Anthropic | null;
-    private readonly model: string;
+    private readonly client: AzureOpenAI | null;
+    private readonly deployment: string;
     private readonly enabled: boolean;
 
     constructor(
         private readonly config: ConfigService,
         private readonly gatekeeper: GatekeeperService,
     ) {
-        const { anthropicApiKey, anthropicModel } = this.config.integrations;
-        this.enabled = anthropicApiKey.length > 0;
-        this.model = anthropicModel;
-        this.client = this.enabled ? new Anthropic({ apiKey: anthropicApiKey }) : null;
+        const { azureOpenAiEndpoint, azureOpenAiApiKey, azureOpenAiDeployment, azureOpenAiApiVersion } =
+            this.config.integrations;
+
+        this.enabled = azureOpenAiEndpoint.length > 0 && azureOpenAiApiKey.length > 0;
+        this.deployment = azureOpenAiDeployment;
+
+        this.client = this.enabled
+            ? new AzureOpenAI({
+                  endpoint: azureOpenAiEndpoint,
+                  apiKey: azureOpenAiApiKey,
+                  apiVersion: azureOpenAiApiVersion,
+                  deployment: azureOpenAiDeployment,
+              })
+            : null;
+
         if (!this.enabled) {
-            this.logger.warn('ANTHROPIC_API_KEY not set — AI calls will return mock responses');
+            this.logger.warn('AZURE_OPENAI_ENDPOINT or AZURE_OPENAI_API_KEY not set — AI calls will return mock responses');
         }
     }
 
@@ -58,10 +68,11 @@ export class AIService {
                 jargonScore: 0,
                 softSkillScore: 0,
                 detectedTerms: [],
-                suggestions: ['AI analysis disabled — ANTHROPIC_API_KEY not set'],
+                suggestions: ['AI analysis disabled — Azure OpenAI not configured'],
                 rawResponse: null,
             };
         }
+
         const systemPrompt =
             `You are an educational assistant for a hi-tech simulation platform.\n` +
             `Analyze the provided text and return ONLY a valid JSON object (no markdown):\n` +
@@ -72,15 +83,17 @@ export class AIService {
             `Context: ${JSON.stringify(request.context ?? {})}`;
 
         try {
-            const message = await this.gatekeeper.execute('anthropic', () =>
-                this.client!.messages.create({
-                    model: this.model,
+            const response = await this.gatekeeper.execute('azure', () =>
+                this.client!.chat.completions.create({
+                    model: this.deployment,
                     max_tokens: 512,
-                    system: systemPrompt,
-                    messages: [{ role: 'user', content: request.text }],
+                    messages: [
+                        { role: 'system', content: systemPrompt },
+                        { role: 'user', content: request.text },
+                    ],
                 }),
             );
-            const raw = message.content[0]?.type === 'text' ? message.content[0].text : '{}';
+            const raw = response.choices[0]?.message?.content ?? '{}';
             const parsed = JSON.parse(raw) as Partial<AIAnalysisResult>;
             return {
                 jargonScore: parsed.jargonScore ?? 0,
@@ -92,7 +105,8 @@ export class AIService {
         } catch (err) {
             this.logger.error('AI analysis failed', (err as Error).message);
             return {
-                jargonScore: 0, softSkillScore: 0,
+                jargonScore: 0,
+                softSkillScore: 0,
                 detectedTerms: [],
                 suggestions: ['AI analysis temporarily unavailable'],
                 rawResponse: null,
@@ -102,21 +116,22 @@ export class AIService {
 
     async generateHint(ctx: HintContext): Promise<string> {
         if (!this.client) return this.mockHint(ctx);
+
         const systemPrompt = this.buildHintSystemPrompt(ctx);
         const userMessage = `תן Hint #${ctx.hintNumber} למשימה: "${ctx.taskTitle}"`;
 
         try {
-            const message = await this.gatekeeper.execute('anthropic', () =>
-                this.client!.messages.create({
-                    model: this.model,
+            const response = await this.gatekeeper.execute('azure', () =>
+                this.client!.chat.completions.create({
+                    model: this.deployment,
                     max_tokens: 300,
-                    system: systemPrompt,
-                    messages: [{ role: 'user', content: userMessage }],
+                    messages: [
+                        { role: 'system', content: systemPrompt },
+                        { role: 'user', content: userMessage },
+                    ],
                 }),
             );
-            return message.content[0]?.type === 'text'
-                ? message.content[0].text
-                : HINT_UNAVAILABLE;
+            return response.choices[0]?.message?.content ?? HINT_UNAVAILABLE;
         } catch (err) {
             this.logger.error('generateHint failed', (err as Error).message);
             return HINT_UNAVAILABLE;
@@ -139,6 +154,7 @@ export class AIService {
             : isOverFreeLimit
             ? `\n💸 Hint #${hintNumber} — נוכו 10 נקודות מהצוות.`
             : '';
+
         return `
 אתה מנטור תומך ב-Tech School — תוכנית תלת-מימד לנוער.
 תפקידך: לעזור לתלמיד/ה להתקדם מבלי לתת את התשובה ישירות.
@@ -183,7 +199,9 @@ ${depthInstruction}
     }
 
     private mockHint(ctx: HintContext): string {
-        return `[Mock hint #${ctx.hintNumber}] חשוב על איזה כלי ב-Fusion 360 ` +
-            `יכול לעזור עם המשימה "${ctx.taskTitle}". (set ANTHROPIC_API_KEY to enable real hints)`;
+        return (
+            `[Mock hint #${ctx.hintNumber}] חשוב על איזה כלי ב-Fusion 360 ` +
+            `יכול לעזור עם המשימה "${ctx.taskTitle}". (set AZURE_OPENAI_ENDPOINT + AZURE_OPENAI_API_KEY to enable real hints)`
+        );
     }
 }

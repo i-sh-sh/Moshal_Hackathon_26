@@ -27,12 +27,24 @@
 Moshal_Hackathon_26/
 │
 ├── backend/                     # שרת NestJS
+│   ├── migrations/              # קבצי SQL ממוספרים (002_auth_audit.sql...)
 │   └── src/
-│       ├── ai/                  # ניתוח טקסט + יצירת hints דרך Claude AI
+│       ├── config/              # משתני סביבה מוטפסים — מקור אמת יחיד
+│       ├── common/              # טיפוסים, decorators, שגיאות משותפים
+│       ├── gatekeeper/          # chokepoint לכל קריאה יוצאת (rate-limit, retry)
+│       ├── audit/               # תיעוד אירועי אבטחה (append-only)
+│       ├── auth/                # JWT + refresh tokens + LocalAuthProvider
+│       ├── admin/               # CRUD משתמשים (admin בלבד)
+│       ├── activity/            # heartbeat + מעקב זמן פעיל
+│       ├── integrations/
+│       │   ├── ai/              # Azure OpenAI — hints + ניתוח טקסט
+│       │   ├── monday/          # Monday GraphQL client
+│       │   ├── firebase/        # stub (mock ברירת מחדל)
+│       │   ├── storage/         # stub (mock ברירת מחדל)
+│       │   └── techschool/      # stub (mock ברירת מחדל)
 │       ├── hints/               # לוגיקת מערכת ה-hints (3 חינם → ניכוי נקודות)
 │       ├── mock-monday/         # סימולטור Monday.com לדמו
-│       ├── monday/              # GraphQL client לשליחת עדכונים ל-Monday האמיתי
-│       ├── rag/                 # בניית הקשר לhints: syllabus + התקדמות צוות
+│       ├── rag/                 # בניית הקשר ל-hints: syllabus + התקדמות צוות
 │       ├── supabase/            # חיבור ל-DB (service role)
 │       ├── tasks/               # כל לוגיקת זרימת המשימות
 │       ├── teams/               # leaderboards, ניקוד, בדיקת סיום צוות
@@ -45,8 +57,7 @@ Moshal_Hackathon_26/
 │   │   ├── HintPanel.vue        # היסטוריית hints ניתנת לכיווץ + בקשת hint חדש
 │   │   ├── Leaderboard.vue      # טבלת דירוג צוותים עם score bars
 │   │   ├── MockMondayBoard.vue  # ממשק המורה בסגנון Monday
-│   │   ├── SprintProgress.vue   # פס התקדמות sprint + ניקוד
-│   │   └── TaskBoard.vue        # לוח משימות — מציג כפתורים שונים לפי תפקיד
+│   │   └── SprintProgress.vue   # פס התקדמות sprint + ניקוד
 │   ├── composables/
 │   │   ├── useLeaderboard.ts    # fetch לטבלת הניקוד
 │   │   ├── useTasks.ts          # כל קריאות ה-API למשימות ו-hints
@@ -81,6 +92,7 @@ Moshal_Hackathon_26/
 ┌─────────────────────────────────────────────────────┐
 │              NestJS Backend (:3001)                  │
 │                                                      │
+│  /api/auth/*         ← login, register, refresh      │
 │  /api/users/*        ← רשימת משתמשים                 │
 │  /api/tasks/*        ← זרימת משימות                  │
 │  /api/hints/*        ← מערכת hints + RAG             │
@@ -88,7 +100,8 @@ Moshal_Hackathon_26/
 │  /api/mock-monday/*  ← סימולטור Monday               │
 │  /api/webhooks/monday← webhook אמיתי מ-Monday        │
 │                                                      │
-│  AIService (Claude)  ← יצירת hints + ניתוח טקסט     │
+│  GatekeeperService   ← כל קריאה יוצאת עוברת כאן     │
+│  AIService (Azure)   ← יצירת hints + ניתוח טקסט     │
 │  RagService          ← בניית הקשר מסילבוס + DB       │
 └────────────┬────────────────────────────────────────┘
              │ supabase-js (service role)
@@ -97,9 +110,16 @@ Moshal_Hackathon_26/
 │              Supabase (PostgreSQL)                   │
 │  challenges / teams / users / sprints / tasks        │
 │  hint_logs / team_hint_counters                      │
+│  refresh_tokens / audit_logs                         │
 │  + views: group_leaderboard, teacher_analytics       │
 └─────────────────────────────────────────────────────┘
 ```
+
+### עקרונות ארכיטקטורה
+
+1. **שכבות** — Controllers מטפלים ב-HTTP בלבד. Services מכילים את הלוגיקה העסקית.
+2. **Gatekeeper** — כל קריאה ליוצאת (Azure OpenAI, Monday) עוברת דרך `GatekeeperService` שמטפל ב-rate-limit, retry, ותיעוד.
+3. **Integrations mock-first** — Azure, Monday, Firebase, S3 ניתנים להחלפה בין mock ל-real דרך env var. הפרויקט עולה ללא שום credentials חיצוניים.
 
 ### זרימת משימה מלאה (Task Flow)
 
@@ -121,7 +141,7 @@ Dev מגיש עבודה
       ▼
 [teacher_review]
       │
-  מורה מאשר (דרך Monday / סימולטור)
+  מורה מאשר (דרך סימולטור / Monday)
       │
       ▼
   [approved]
@@ -129,7 +149,7 @@ Dev מגיש עבודה
       └─► מערכת בודקת: כל משימות הצוות אושרו?
               │
               ▼
-         is_completed = true → ספרינט הבא נפתח
+         is_completed = true
 ```
 
 ---
@@ -139,41 +159,32 @@ Dev מגיש עבודה
 ### דרישות מקדימות
 - Node.js 18+
 - חשבון Supabase (חינמי)
-- מפתח API של Anthropic (Claude)
 
 ### צעד 1 — הקמת Supabase
 1. צור פרויקט ב-[supabase.com](https://supabase.com)
 2. לך ל-**SQL Editor** → העתק-הדבק את `supabase/schema.sql` → הרץ
-3. שמור את ה-URL, `anon key`, ו-`service_role key` מ-Project Settings → API
+3. שמור את ה-URL ו-`service_role key` מ-Project Settings → API
 
-### צעד 2 — Seed — נתוני פתיחה
+### צעד 2 — Backend
 ```bash
 cd backend
-cp .env.example .env   # מלא את הערכים
+cp .env.example .env   # מלא את הערכים (ראה סעיף "משתני סביבה")
 npm install
 npm run seed           # יוצר 2 צוותים, 8 משתמשים, 3 ספרינטים, 8 משימות
-```
-הסיד אידמפוטנטי — בטוח להריץ כמה פעמים.
-
-### צעד 3 — הרצת Backend
-```bash
-cd backend
-npm run start:dev
-# השרת רץ על http://localhost:3001
+npm run start:dev      # http://localhost:3001
 ```
 
-### צעד 4 — הרצת Frontend
+### צעד 3 — Frontend
 ```bash
 cd frontend
+cp .env.example .env   # מלא NUXT_PUBLIC_API_BASE_URL
 npm install
-npm run dev
-# האפליקציה רצה על http://localhost:3000
+npm run dev            # http://localhost:3000
 ```
 
-### צעד 5 — בדיקה שהכל עובד
-- פתח `http://localhost:3000` — מסך בחירת משתמש
-- בחר תלמיד → תועבר ל-`/student` — הדשבורד המלא
-- פתח `http://localhost:3000/teacher` — ממשק המורה (סימולטור Monday)
+### צעד 4 — בדיקה
+- `http://localhost:3000` — מסך בחירת משתמש
+- `http://localhost:3000/teacher` — ממשק המורה
 
 ---
 
@@ -184,85 +195,91 @@ npm run dev
 #### `TasksModule` — הלב של המוצר
 קובץ: `src/tasks/tasks.service.ts`
 
-אחראי על כל מעבר הסטטוס של משימה. כל מתודה מאמתת שהמשתמש נמצא בצוות הנכון ויש לו את התפקיד המתאים לפני שמבצעת את השינוי.
-
 ```
-submitTask()     → מעביר pending → qa_review   (Dev/Hardware בלבד)
-qaReview()       → מעביר qa_review → pm_review או חזרה ל-pending (QA בלבד)
-pmReview()       → מעביר pm_review → teacher_review + שולח עדכון ל-Monday (PM בלבד)
-teacherApprove() → מעביר teacher_review → approved + בודק סיום צוות
+submitTask()     → pending → qa_review         (Dev/Hardware בלבד)
+qaReview()       → qa_review → pm_review / pending  (QA בלבד)
+pmReview()       → pm_review → teacher_review       (PM בלבד)
+teacherApprove() → teacher_review → approved + בדיקת סיום צוות
 ```
 
-#### `HintsModule` + `RagModule` — מערכת הרמזים עם הקשר
-קובץ: `src/hints/hints.service.ts`, `src/rag/rag.service.ts`
+#### `HintsModule` + `RagModule` — מערכת הרמזים
+קבצים: `src/hints/hints.service.ts`, `src/rag/rag.service.ts`
 
 ```
-requestHint() → RagService בונה הקשר מלא:
-                  - סילבוס לפי sprint UUID (src/rag/syllabus.ts)
-                  - כלי Fusion 360 רלוונטיים לאתגר
-                  - התקדמות הצוות (כמה משימות אושרו)
+requestHint() → RagService בונה הקשר:
+                  - סילבוס לפי sprint UUID
+                  - כלי Fusion 360 רלוונטיים
+                  - התקדמות הצוות
                   - מספר הרמז הנוכחי
-              → AIService מייצר hint מותאם לפי עומק (1/2/3+)
-              → אם hint 4+: ניכוי 10 נקודות מהצוות
+              → AIService מייצר hint דרך Azure OpenAI
+              → hint 4+: ניכוי 10 נקודות מהצוות
               → כל hint מתועד ב-hint_logs
 ```
 
-#### `TeamsModule` — ניקוד וסיום
+#### `TeamsModule`
 קובץ: `src/teams/teams.service.ts`
 
 ```
-checkAndCompleteTeam()   → כל המשימות approved? → is_completed=true
-getGroupLeaderboard()    → כל הצוותים ממוינים לפי ניקוד
-getIndividualLeaderboard()→ top 3 בלבד (לשמירת ביטחון)
-getTeacherAnalytics()    → זמן פעיל vs מהירות ביצוע לכל תלמיד
-getTeamById()            → פרטי צוות כולל sprint נוכחי (join)
-getSprintProgress()      → כמה משימות אושרו מתוך הסה"כ
+checkAndCompleteTeam()    → כל המשימות approved? → is_completed=true
+getGroupLeaderboard()     → כל הצוותים ממוינים לפי ניקוד
+getIndividualLeaderboard()→ top 3 בלבד
+getTeacherAnalytics()     → זמן פעיל vs מהירות ביצוע
+getTeamById()             → פרטי צוות + sprint נוכחי
+getSprintProgress()       → X/Y משימות אושרו
 ```
 
-#### `UsersModule` — ניהול משתמשים
-קובץ: `src/users/users.service.ts`
+#### `AuthModule`
+קובץ: `src/auth/`
 
 ```
-findAll()   → כל המשתמשים (לבחירת זהות במסך כניסה)
-findOne(id) → משתמש בודד עם team + role
+POST /auth/login    → JWT access token + refresh token (HttpOnly cookie)
+POST /auth/refresh  → מחליף refresh token
+POST /auth/logout   → מבטל refresh token
+GET  /auth/me       → פרטי המשתמש המחובר
 ```
 
-#### `MockMondayModule` — סימולטור
-קובץ: `src/mock-monday/mock-monday.service.ts`
+#### `AIModule` — Azure OpenAI
+קובץ: `src/integrations/ai/ai.service.ts`
 
-מחליף את Monday.com האמיתי לצורך הדמו. מתממשק לאותם שירותים פנימיים בדיוק כמו ה-webhook האמיתי.
+- `analyze(text)` — jargonScore, softSkillScore, detectedTerms
+- `generateHint(ctx)` — hint מותאם לפי עומק (1=כללי, 2=ספציפי, 3+=מעשי)
+- עובד ב-mock אוטומטי אם `AZURE_OPENAI_API_KEY` לא מוגדר
 
-#### `AIModule` — Claude
-קובץ: `src/ai/ai.service.ts`
+#### `GatekeeperModule`
+קובץ: `src/gatekeeper/gatekeeper.service.ts`
 
-שתי מתודות:
-- `analyze(text)` — מחזיר jargonScore, softSkillScore, detectedTerms
-- `generateHint(ctx)` — hint מותאם לפי מספר, סילבוס, והתקדמות (1=כללי, 2=ספציפי, 3+=מעשי)
+כל קריאה יוצאת (Azure OpenAI, Monday) עוברת כאן:
+- Token bucket rate limiting
+- Retry עם exponential backoff
+- תיעוד מובנה לכל קריאה
 
 ### כל ה-API Endpoints
 
-| Method | נתיב | מי קורא | מה עושה |
-|---|---|---|---|
-| `GET` | `/api/users` | Frontend (login) | רשימת כל המשתמשים |
-| `GET` | `/api/users/:id` | Frontend | פרטי משתמש בודד |
-| `GET` | `/api/tasks/team/:teamId` | Frontend | כל המשימות של הצוות |
-| `POST` | `/api/tasks/submit` | Dev/Hardware | הגשת עבודה |
-| `POST` | `/api/tasks/qa-review` | QA | אישור/דחייה של QA |
-| `POST` | `/api/tasks/pm-review` | PM | אישור/דחייה של PM |
-| `POST` | `/api/hints` | כולם | בקשת hint |
-| `GET` | `/api/hints/count` | Frontend | כמה hints נוצלו |
-| `GET` | `/api/hints/history` | Frontend | היסטוריית hints |
-| `GET` | `/api/teams/leaderboard/group` | Frontend | דירוג צוותים |
-| `GET` | `/api/teams/leaderboard/individual` | Frontend | top 3 אישי |
-| `GET` | `/api/teams/analytics` | דשבורד מורה | analytics לכל תלמיד |
-| `GET` | `/api/teams/:id` | Frontend | פרטי צוות + sprint נוכחי |
-| `GET` | `/api/teams/:id/sprint-progress` | Frontend | X/Y משימות אושרו |
-| `POST` | `/api/webhooks/monday` | Monday.com | webhook אמיתי |
-| `GET` | `/api/mock-monday/challenges` | Frontend | רשימת challenges |
-| `GET` | `/api/mock-monday/board/:id` | Frontend | לוח בסגנון Monday |
-| `POST` | `/api/mock-monday/kickoff/:id` | מורה | הפעלת challenge |
-| `POST` | `/api/mock-monday/approve/:taskId` | מורה | אישור teacher |
-| `POST` | `/api/mock-monday/reject/:taskId` | מורה | דחיית teacher |
+| Method | נתיב | מה עושה |
+|---|---|---|
+| `POST` | `/api/auth/login` | התחברות |
+| `POST` | `/api/auth/refresh` | חידוש token |
+| `POST` | `/api/auth/logout` | התנתקות |
+| `GET` | `/api/users` | רשימת כל המשתמשים |
+| `GET` | `/api/users/:id` | משתמש בודד |
+| `GET` | `/api/tasks/team/:teamId` | משימות הצוות |
+| `POST` | `/api/tasks/submit` | הגשת עבודה |
+| `POST` | `/api/tasks/qa-review` | אישור/דחיית QA |
+| `POST` | `/api/tasks/pm-review` | אישור/דחיית PM |
+| `POST` | `/api/hints` | בקשת hint |
+| `GET` | `/api/hints/count` | כמה hints נוצלו |
+| `GET` | `/api/hints/history` | היסטוריית hints |
+| `GET` | `/api/teams/leaderboard/group` | דירוג צוותים |
+| `GET` | `/api/teams/leaderboard/individual` | top 3 אישי |
+| `GET` | `/api/teams/analytics` | analytics לכל תלמיד |
+| `GET` | `/api/teams/:id` | פרטי צוות + sprint |
+| `GET` | `/api/teams/:id/sprint-progress` | X/Y משימות |
+| `POST` | `/api/webhooks/monday` | webhook מ-Monday |
+| `GET` | `/api/mock-monday/challenges` | רשימת challenges |
+| `GET` | `/api/mock-monday/board/:id` | לוח בסגנון Monday |
+| `POST` | `/api/mock-monday/kickoff/:id` | הפעלת challenge |
+| `POST` | `/api/mock-monday/approve/:taskId` | אישור teacher |
+| `POST` | `/api/mock-monday/reject/:taskId` | דחיית teacher |
 
 ---
 
@@ -271,19 +288,17 @@ findOne(id) → משתמש בודד עם team + role
 ### דפים (Pages)
 
 #### `pages/index.vue` — מסך כניסה
-גריד של כרטיסי משתמשים עם אווטאר, שם, ותפקיד. לחיצה שומרת session ב-localStorage ומעבירה ל-`/student`.
+גריד של כרטיסי משתמשים. לחיצה שומרת session ב-localStorage ומעבירה ל-`/student`.
 
 #### `pages/student.vue` — דשבורד התלמיד
-הדף המרכזי של האפליקציה:
 
 | אזור | תיאור |
 |---|---|
-| Sticky navbar | שם, תגית תפקיד, שם צוות, ניקוד, כפתור יציאה |
-| SprintProgress | שם ה-sprint, פס התקדמות X/Y, status pill |
+| Sticky navbar | שם, תגית תפקיד, שם צוות, ניקוד |
+| SprintProgress | שם ה-sprint, פס התקדמות X/Y |
 | גריד משימות | כרטיס לכל משימה עם כפתורים לפי תפקיד |
-| מודלים | Submit / QA Review / PM Review — עם ספינר ו-toast |
-| HintPanel | קיפול/פריסה של היסטוריית hints + בקשה חדשה |
-| Tab "Leaderboard" | טבלת הצוותים עם highlight לצוות שלך |
+| HintPanel | היסטוריית hints + בקשה חדשה |
+| Tab "Leaderboard" | טבלת הצוותים |
 
 #### `pages/teacher.vue` — דשבורד המורה
 עוטף את `MockMondayBoard.vue`.
@@ -291,84 +306,55 @@ findOne(id) → משתמש בודד עם team + role
 ### קומפוננטות
 
 #### `SprintProgress.vue`
-מציג שם sprint, פס התקדמות צבעוני (אינדיגו → ירוק כשמסתיים), ניקוד צוות, ו-status badge.
+פס התקדמות צבעוני, ניקוד צוות, status badge.
 
 #### `HintPanel.vue`
-ניתן לפתיחה/סגירה. מציג את ה-hint האחרון שהוחזר מ-Claude עם פרטי עלות, ורשימה גלולה של כל הרמזים הקודמים.
+ניתן לפתיחה/סגירה. מציג hints מ-Azure OpenAI עם פרטי עלות והיסטוריה.
 
 #### `Leaderboard.vue`
-טבלת צוותים ממוינת לפי ניקוד. score bars יחסיים, medals 🥇🥈🥉, highlight לצוות המחובר.
-
-#### `TaskBoard.vue`
-לוח המשימות של התלמידים — מציג כפתורים שונים לפי תפקיד:
-
-| תפקיד | מה הוא רואה |
-|---|---|
-| Dev / Hardware | כפתור "Submit Work" על משימות pending/rejected |
-| QA | כפתור "QA Review" עם checklist על משימות qa_review |
-| PM | כפתור "PM Review" עם סיכום QA על משימות pm_review |
-| כולם | כפתור "Hint 💡" על כל משימה פתוחה |
-
-#### `EnglishTerm.vue` — תרגום מונחים
-```vue
-<EnglishTerm term="Sprint" />
-<!-- מציג "Sprint" + tooltip עברי "ספרינט (מחזור פיתוח קצר)" בhover -->
-```
-יש מילון מובנה של 30 מונחים. ניתן להעביר `translation` ידני.
+טבלת צוותים ממוינת לפי ניקוד. medals 🥇🥈🥉, highlight לצוות המחובר.
 
 #### `MockMondayBoard.vue` — ממשק המורה
-ממשק בעיצוב כהה בסגנון Monday.com עם 5 עמודות שמשקפות את סטטוסי המשימות.
+עיצוב כהה בסגנון Monday.com עם 5 עמודות:
+`In Progress → QA Review → PM Review → Pending Teacher Review → Approved`
+
+#### `EnglishTerm.vue`
+```vue
+<EnglishTerm term="Sprint" />
+<!-- מציג tooltip עברי בhover -->
+```
 
 ### Composables
 
-#### `useUser.ts`
 ```typescript
 const { user, isLoggedIn, login, logout } = useUser();
-// session נשמר ב-localStorage, מסונכרן דרך useState
-```
 
-#### `useTasks.ts`
-```typescript
 const { tasks, fetchTasks, submitTask, qaReview, pmReview, requestHint } =
     useTasks(teamId, userId);
-// כל פעולה קוראת ל-API ומרעננת את רשימת המשימות אוטומטית
-```
 
-#### `useLeaderboard.ts`
-```typescript
 const { rows, fetchLeaderboard } = useLeaderboard();
-// rows: GroupLeaderboardRow[] ממוינים לפי ניקוד
 ```
 
 ---
 
 ## Database — Supabase
 
-### טבלאות ויחסים
-
-```
-challenges (1)
-    └── sprints (many)
-            └── tasks (many) ←→ teams (1)
-                                    └── users (many)
-
-users ←→ hint_logs
-users ←→ team_hint_counters ←→ teams
-```
-
 ### טבלאות
 
 | טבלה | עמודות מרכזיות | הערות |
 |---|---|---|
 | `challenges` | title, monday_board_id, is_active | מופעל ע"י המורה |
-| `teams` | accumulated_score, sprint_status, **is_completed** | `is_completed` חוסם challenge הבא |
-| `users` | current_team_id, **current_role**, total_active_time | role דינמי לפי challenge |
+| `teams` | accumulated_score, sprint_status, is_completed | |
+| `users` | current_team_id, current_role, password_hash, account_type | |
 | `sprints` | challenge_id, order_index | שלבי-משנה בתוך challenge |
-| `tasks` | sprint_id, team_id, **status**, qa_checklist, monday_item_id | לב המערכת |
-| `hint_logs` | user_id, team_id, hint_number, points_deducted | כל hint מתועד |
-| `team_hint_counters` | user_id, team_id, hint_count | unique על (user, team) |
+| `tasks` | sprint_id, team_id, status, qa_checklist | לב המערכת |
+| `hint_logs` | user_id, team_id, hint_number, points_deducted | append-only |
+| `team_hint_counters` | user_id, team_id, hint_count | unique (user, team) |
+| `refresh_tokens` | user_id, token_hash, expires_at, revoked_at | JWT refresh |
+| `audit_logs` | user_id, action, metadata | תיעוד אבטחה |
+| `failed_login_attempts` | email, attempts, locked_until | brute-force protection |
 
-### Views מובנים (נוצרים מה-schema)
+### Views מובנים
 
 | View | שימוש |
 |---|---|
@@ -376,50 +362,39 @@ users ←→ team_hint_counters ←→ teams
 | `individual_leaderboard` | דירוג אישי (backend מחזיר top 3 בלבד) |
 | `teacher_analytics` | זמן פעיל + tasks/שעה לכל תלמיד |
 
-### RLS — אבטחת נתונים
-- **Backend** משתמש ב-service role key → עוקף RLS, יכול לקרוא/לכתוב הכל
-- **Frontend** משתמש ב-anon key → RLS חל, כל משתמש רואה רק את הנתונים שלו ושל הצוות שלו
+### RLS
+- **Backend** — service role key → עוקף RLS, גישה מלאה
+- **Frontend** — anon key → RLS חל, כל משתמש רואה רק את הנתונים שלו
 
 ---
 
 ## מערכת ה-Hints
 
 ```
-בקשת hint ראשונה (1, 2, 3)  →  hint חינמי מ-Claude
-בקשת hint 4+                →  hint + ניכוי 10 נקודות מהצוות
-החלפת צוות                  →  הסופר מתאפס (counter חדש לצוות חדש)
+hints 1-3  →  חינמי מ-Azure OpenAI
+hint 4+    →  ניכוי 10 נקודות מהצוות
+החלפת צוות →  הסופר מתאפס
 ```
 
-### RAG — הקשר עשיר לכל hint
+### RAG — הקשר לכל hint
 
-ה-`RagService` בונה הקשר מלא לפני כל קריאה ל-Claude:
+`RagService` בונה הקשר לפני כל קריאה ל-Azure OpenAI:
 - **סילבוס** — לפי sprint UUID: שם, מטרת CBL, כלי Fusion 360 רלוונטיים
 - **התקדמות הצוות** — כמה משימות אושרו בספרינט
 - **מספר הרמז** — קובע את עומק ה-hint
 
-Claude מותאם לפי מספר הרמז:
+עומק לפי מספר רמז:
 - **Hint #1** — כיוון כללי, מושג רלוונטי
-- **Hint #2** — כיוון ספציפי יותר, שם הכלי
-- **Hint #3+** — צעד מעשי וישיר, התלמיד מתקשה
-
-כל hint מתועד ב-`hint_logs` עם טקסט ה-hint, הצוות, המשימה, וכמה נקודות נוכו.
+- **Hint #2** — כיוון ספציפי, שם הכלי
+- **Hint #3+** — צעד מעשי וישיר
 
 ---
 
 ## סימולטור Monday.com
 
-מכיוון שאין גישה ל-Monday.com, בנינו סימולטור מלא:
+כשמורה לוחץ Approve בסימולטור → הקוד קורא לאותה פונקציה (`teacherApprove`) שהיה מופעל על ידי webhook אמיתי מ-Monday. **אין שום שינוי בלוגיקה הפנימית.**
 
-### ממשק המורה — `/teacher`
-- עיצוב כהה זהה ל-Monday.com
-- **5 עמודות** המשקפות את סטטוסי המשימות:
-  `In Progress → QA Review → PM Review → Pending Teacher Review → Approved`
-- כפתורי **Approve / Reject** על משימות ב-"Pending Teacher Review"
-- כפתור **Kickoff Challenge** — מפעיל challenge חדש לכל הצוותים
-- רענון אוטומטי אחרי כל פעולה
-
-### מה קורה מאחורי הקלעים
-כשמורה לוחץ Approve בסימולטור → הקוד קורא לאותה פונקציה (`teacherApprove`) שהיה מופעל על ידי webhook אמיתי מ-Monday. **אין שום שינוי בלוגיקה הפנימית** — רק ה-trigger שונה.
+כפתור **Kickoff Challenge** — מפעיל challenge חדש לכל הצוותים.
 
 ---
 
@@ -427,43 +402,49 @@ Claude מותאם לפי מספר הרמז:
 
 ### `backend/.env`
 ```env
+# שרת
 PORT=3001
+CORS_ORIGINS=http://localhost:3000
+
+# Supabase (חובה)
 SUPABASE_URL=https://xxxx.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=eyJ...    # שמור סודי! עוקף את כל ה-RLS
-ANTHROPIC_API_KEY=sk-ant-...        # מ-console.anthropic.com
-MONDAY_API_TOKEN=eyJ...             # רלוונטי רק ל-Monday אמיתי
-MONDAY_WEBHOOK_SECRET=any-string    # מחרוזת אקראית שאתה בוחר
-CORS_ORIGINS=http://localhost:3000  # מופרד בפסיקים לריבוי דומיינים
+
+# JWT (חובה)
+JWT_ACCESS_SECRET=כל-סטרינג-ארוך-אקראי
+
+# Azure OpenAI (אופציונלי — mock פועל בלעדיו)
+AZURE_OPENAI_ENDPOINT=https://<resource>.openai.azure.com
+AZURE_OPENAI_API_KEY=...
+AZURE_OPENAI_DEPLOYMENT=gpt-4o
+AZURE_OPENAI_API_VERSION=2024-02-15-preview
+
+# Monday.com (אופציונלי — הסימולטור מחליף)
+MONDAY_API_TOKEN=
+MONDAY_WEBHOOK_SECRET=
 ```
 
 ### `frontend/.env`
 ```env
-NUXT_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
-NUXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...     # בטוח לחשוף — RLS מגן
 NUXT_PUBLIC_API_BASE_URL=http://localhost:3001/api
-NUXT_SUPABASE_SERVICE_KEY=eyJ...         # לserver routes בלבד
 ```
-
-> **הסבר שמות:** `NUXT_PUBLIC_*` זמין גם בדפדפן וגם בשרת. `NUXT_*` (ללא PUBLIC) — שרת בלבד.
 
 ---
 
 ## עבודה עם Git
 
 ```bash
-# לפני כל עבודה
-git pull origin master
+git pull origin claude/learn-project-OVYbH
 
-# אחרי שסיימת
 git add .
 git commit -m "feat: תיאור קצר"
-git push origin master
+git push origin claude/learn-project-OVYbH
 ```
 
 ### כללי אצבע
-- **שינית `frontend/types/types.ts`?** — תעדכן גם את הצד השני (backend DTOs)
-- **שינית `supabase/schema.sql`?** — תעדכן את הצוות לפני שמריצים בSupabase
-- **הוספת endpoint חדש?** — תוסיף אותו לclient המתאים בפרונטאנד
+- **שינית `frontend/types/types.ts`?** — תעדכן גם את backend DTOs
+- **שינית `supabase/schema.sql`?** — תעדכן את הצוות לפני שמריצים ב-Supabase
+- **הוספת endpoint חדש?** — תוסיף אותו ל-composable המתאים בפרונטאנד
 
 ---
 
@@ -472,13 +453,13 @@ git push origin master
 | תחום | קבצים רלוונטיים |
 |---|---|
 | **זרימת משימות** | `backend/src/tasks/` |
-| **מערכת hints + AI + RAG** | `backend/src/hints/`, `backend/src/ai/`, `backend/src/rag/` |
+| **מערכת hints + AI + RAG** | `backend/src/hints/`, `backend/src/integrations/ai/`, `backend/src/rag/` |
 | **ניקוד וסיום צוות** | `backend/src/teams/` |
 | **ניהול משתמשים** | `backend/src/users/` |
+| **אימות והרשאות** | `backend/src/auth/`, `backend/src/admin/` |
 | **סימולטור Monday** | `backend/src/mock-monday/`, `frontend/components/MockMondayBoard.vue` |
 | **מסך כניסה** | `frontend/pages/index.vue`, `frontend/composables/useUser.ts` |
 | **דשבורד תלמיד** | `frontend/pages/student.vue`, `frontend/components/SprintProgress.vue`, `frontend/components/HintPanel.vue` |
-| **לוח משימות** | `frontend/components/TaskBoard.vue`, `frontend/composables/useTasks.ts` |
 | **Leaderboard** | `frontend/components/Leaderboard.vue`, `frontend/composables/useLeaderboard.ts` |
-| **DB ו-RLS** | `supabase/schema.sql` |
+| **DB ו-RLS** | `supabase/schema.sql`, `backend/migrations/` |
 | **טיפוסים משותפים** | `frontend/types/types.ts` |

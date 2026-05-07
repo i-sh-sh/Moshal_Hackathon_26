@@ -44,7 +44,7 @@ export class ConfigService {
                 storage: this.cfg.integrations.storage,
                 techschool: this.cfg.integrations.techschool,
                 monday: this.cfg.integrations.mondayApiToken ? 'configured' : 'mock',
-                anthropic: this.cfg.integrations.anthropicApiKey ? 'configured' : 'mock',
+                azure: this.cfg.integrations.azureOpenAiApiKey ? 'configured' : 'mock',
             },
         };
     }

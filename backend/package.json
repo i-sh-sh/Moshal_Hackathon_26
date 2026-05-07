@@ -1,7 +1,7 @@
 {
   "name": "hackathon-backend",
   "version": "1.0.0",
-  "description": "TeamSprintUp backend — NestJS + Postgres + Anthropic Claude",
+  "description": "TeamSprintUp backend — NestJS + Supabase + Azure OpenAI",
   "author": "",
   "private": true,
   "license": "UNLICENSED",
@@ -21,7 +21,7 @@
     "test:cov": "jest --coverage"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.32.0",
+    "openai": "^4.67.0",
     "@nestjs/common": "^10.0.0",
     "@nestjs/core": "^10.0.0",
     "@nestjs/platform-express": "^10.0.0",
