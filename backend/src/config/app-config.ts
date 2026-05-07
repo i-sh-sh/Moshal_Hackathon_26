@@ -50,6 +50,7 @@ export interface IntegrationsConfig {
     readonly azureOpenAiApiKey: string;
     readonly azureOpenAiDeployment: string;
     readonly azureOpenAiApiVersion: string;
+    readonly azureOpenAiWhisperDeployment: string;
 }
 
 export interface GatekeeperOverrides {
@@ -151,6 +152,7 @@ export function loadAppConfig(): AppConfig {
             azureOpenAiApiKey: process.env.AZURE_OPENAI_API_KEY ?? '',
             azureOpenAiDeployment: process.env.AZURE_OPENAI_DEPLOYMENT ?? 'gpt-4o',
             azureOpenAiApiVersion: process.env.AZURE_OPENAI_API_VERSION ?? '2024-02-15-preview',
+            azureOpenAiWhisperDeployment: process.env.AZURE_OPENAI_WHISPER_DEPLOYMENT ?? 'whisper',
         },
         gatekeeper: {
             anthropicRpm: process.env.GATEKEEPER_AZURE_RPM ? intEnv('GATEKEEPER_AZURE_RPM', 60) : undefined,

@@ -14,10 +14,11 @@
 5. [Frontend — Nuxt 3](#frontend--nuxt-3)
 6. [Database — Supabase](#database--supabase)
 7. [מערכת ה-Hints](#מערכת-ה-hints)
-8. [סימולטור Monday.com](#סימולטור-mondaycom)
-9. [משתני סביבה](#משתני-סביבה)
-10. [עבודה עם Git](#עבודה-עם-git)
-11. [מי אחראי על מה](#מי-אחראי-על-מה)
+8. [מערכת DUDE — צ'אט + בוט AI + פרופיל לימודי](#מערכת-dude--צאט--בוט-ai--פרופיל-לימודי)
+9. [סימולטור Monday.com](#סימולטור-mondaycom)
+10. [משתני סביבה](#משתני-סביבה)
+11. [עבודה עם Git](#עבודה-עם-git)
+12. [מי אחראי על מה](#מי-אחראי-על-מה)
 
 ---
 
@@ -49,17 +50,26 @@ Moshal_Hackathon_26/
 │       ├── tasks/               # כל לוגיקת זרימת המשימות
 │       ├── teams/               # leaderboards, ניקוד, בדיקת סיום צוות
 │       ├── users/               # GET /users, GET /users/:id
-│       └── webhooks/            # קבלת events נכנסים מ-Monday
+│       ├── webhooks/            # קבלת events נכנסים מ-Monday
+│       ├── chat/                # ערוצי צ'אט קבוצתי — CRUD הודעות וערוצים
+│       ├── dude/                # בוט DUDE — תגובות AI + הפעלת ניתוח שיחה
+│       └── student-profile/     # פרופיל לימודי — ז'רגון, soft skills, snapshots
 │
 ├── frontend/                    # אפליקציית Nuxt 3
 │   ├── components/
-│   │   ├── EnglishTerm.vue      # מילון אנגלי-עברי בhover
-│   │   ├── HintPanel.vue        # היסטוריית hints ניתנת לכיווץ + בקשת hint חדש
-│   │   ├── Leaderboard.vue      # טבלת דירוג צוותים עם score bars
-│   │   ├── MockMondayBoard.vue  # ממשק המורה בסגנון Monday
-│   │   └── SprintProgress.vue   # פס התקדמות sprint + ניקוד
+│   │   ├── AnalyticsDashboard.vue   # טבלת analytics לכל תלמיד (זמן פעיל, tasks/hr)
+│   │   ├── ChatChannel.vue          # ממשק צ'אט קבוצתי — בועות הודעה + input
+│   │   ├── EnglishTerm.vue          # מילון אנגלי-עברי בhover
+│   │   ├── HintPanel.vue            # היסטוריית hints ניתנת לכיווץ + בקשת hint חדש
+│   │   ├── Leaderboard.vue          # טבלת דירוג צוותים עם score bars
+│   │   ├── MockMondayBoard.vue      # ממשק המורה בסגנון Monday
+│   │   ├── SprintProgress.vue       # פס התקדמות sprint + ניקוד
+│   │   ├── StudentProfileCard.vue   # כרטיס פרופיל לימודי + sparkline התקדמות
+│   │   └── TeacherChatPanel.vue     # כל הערוצים למורה + כפתור ניתוח DUDE
 │   ├── composables/
+│   │   ├── useChat.ts           # init ערוץ, fetch/send הודעות, polling 5 שניות
 │   │   ├── useLeaderboard.ts    # fetch לטבלת הניקוד
+│   │   ├── useStudentProfile.ts # fetch פרופיל + snapshots + triggerAnalysis
 │   │   ├── useTasks.ts          # כל קריאות ה-API למשימות ו-hints
 │   │   └── useUser.ts           # session state — שמירה ב-localStorage
 │   ├── pages/
@@ -92,13 +102,16 @@ Moshal_Hackathon_26/
 ┌─────────────────────────────────────────────────────┐
 │              NestJS Backend (:3001)                  │
 │                                                      │
-│  /api/auth/*         ← login, register, refresh      │
-│  /api/users/*        ← רשימת משתמשים                 │
-│  /api/tasks/*        ← זרימת משימות                  │
-│  /api/hints/*        ← מערכת hints + RAG             │
-│  /api/teams/*        ← leaderboards + analytics      │
-│  /api/mock-monday/*  ← סימולטור Monday               │
-│  /api/webhooks/monday← webhook אמיתי מ-Monday        │
+│  /api/auth/*              ← login, register, refresh      │
+│  /api/users/*             ← רשימת משתמשים                │
+│  /api/tasks/*             ← זרימת משימות                 │
+│  /api/hints/*             ← מערכת hints + RAG            │
+│  /api/teams/*             ← leaderboards + analytics     │
+│  /api/mock-monday/*       ← סימולטור Monday              │
+│  /api/webhooks/monday     ← webhook אמיתי מ-Monday       │
+│  /api/chat/*              ← ערוצי צ'אט + הודעות          │
+│  /api/dude/*              ← DUDE bot + ניתוח שיחה        │
+│  /api/student-profiles/*  ← פרופילים + snapshots         │
 │                                                      │
 │  GatekeeperService   ← כל קריאה יוצאת עוברת כאן     │
 │  AIService (Azure)   ← יצירת hints + ניתוח טקסט     │
@@ -111,6 +124,8 @@ Moshal_Hackathon_26/
 │  challenges / teams / users / sprints / tasks        │
 │  hint_logs / team_hint_counters                      │
 │  refresh_tokens / audit_logs                         │
+│  chat_channels / chat_messages / channel_participants│
+│  student_profiles / profile_snapshots                │
 │  + views: group_leaderboard, teacher_analytics       │
 └─────────────────────────────────────────────────────┘
 ```
@@ -243,7 +258,41 @@ GET  /auth/me       → פרטי המשתמש המחובר
 
 - `analyze(text)` — jargonScore, softSkillScore, detectedTerms
 - `generateHint(ctx)` — hint מותאם לפי עומק (1=כללי, 2=ספציפי, 3+=מעשי)
+- `generateDudeResponse(history, trigger)` — תגובת בוט בצ'אט קבוצתי
+- `analyzeConversation(messages, userId)` — ניתוח שיחה לעדכון פרופיל לימודי
 - עובד ב-mock אוטומטי אם `AZURE_OPENAI_API_KEY` לא מוגדר
+
+#### `ChatModule` — ערוצי צ'אט
+קובץ: `src/chat/chat.service.ts`
+
+```
+createChannel(teamId)    → יוצר ערוץ לצוות (unique per team)
+getMessages(channelId)   → הודעות ממוינות לפי זמן
+sendMessage(...)         → שמירת הודעת תלמיד
+sendBotMessage(...)      → שמירת תגובת DUDE (is_bot=true)
+addTeacherToAllChannels()→ מוסיף מורה כ-observer לכל הערוצים
+getUnanalyzedMessages()  → הודעות מאז הניתוח האחרון
+```
+
+#### `DudeModule` — בוט AI
+קובץ: `src/dude/dude.service.ts`
+
+```
+onStudentMessage(channelId, msg) → מחליט אם DUDE מגיב:
+    • כל DUDE_RESPONSE_INTERVAL=3 הודעות תלמיד
+    • תמיד כאשר ההודעה מסתיימת ב-"?"
+analyzeChannel(channelId) → מריץ ניתוח מלא, מעדכן פרופילים, מתעד ב-channel_analysis_log
+```
+
+#### `StudentProfileModule` — פרופיל לימודי
+קובץ: `src/student-profile/student-profile.service.ts`
+
+```
+getProfile(userId)         → פרופיל נוכחי (null אם לא נוצר עדיין)
+updateFromAnalysis(userId) → weighted mean של ז'רגון + soft skills + שמירת snapshot
+getAllProfiles()            → כל הפרופילים (תצוגת מורה)
+getSnapshots(userId)       → היסטוריה כרונולוגית לגרף התקדמות
+```
 
 #### `GatekeeperModule`
 קובץ: `src/gatekeeper/gatekeeper.service.ts`
@@ -280,6 +329,16 @@ GET  /auth/me       → פרטי המשתמש המחובר
 | `POST` | `/api/mock-monday/kickoff/:id` | הפעלת challenge |
 | `POST` | `/api/mock-monday/approve/:taskId` | אישור teacher |
 | `POST` | `/api/mock-monday/reject/:taskId` | דחיית teacher |
+| `GET` | `/api/chat/channels` | כל הערוצים (מורה) |
+| `GET` | `/api/chat/teams/:teamId/channel` | ערוץ הצוות |
+| `POST` | `/api/chat/teams/:teamId/channel` | יצירת ערוץ לצוות |
+| `GET` | `/api/chat/channels/:channelId/messages` | הודעות בערוץ |
+| `POST` | `/api/chat/channels/:channelId/messages` | שליחת הודעה (ישירה, ללא DUDE) |
+| `POST` | `/api/dude/channels/:channelId/messages` | שליחת הודעה + הפעלת DUDE |
+| `POST` | `/api/dude/channels/:channelId/analyze` | ניתוח שיחה ועדכון פרופילים |
+| `GET` | `/api/student-profiles` | כל הפרופילים (מורה) |
+| `GET` | `/api/student-profiles/:userId` | פרופיל תלמיד |
+| `GET` | `/api/student-profiles/:userId/snapshots` | היסטוריית ניקוד |
 
 ---
 
@@ -292,16 +351,21 @@ GET  /auth/me       → פרטי המשתמש המחובר
 
 #### `pages/student.vue` — דשבורד התלמיד
 
-| אזור | תיאור |
+| Tab | תיאור |
 |---|---|
-| Sticky navbar | שם, תגית תפקיד, שם צוות, ניקוד |
-| SprintProgress | שם ה-sprint, פס התקדמות X/Y |
-| גריד משימות | כרטיס לכל משימה עם כפתורים לפי תפקיד |
-| HintPanel | היסטוריית hints + בקשה חדשה |
-| Tab "Leaderboard" | טבלת הצוותים |
+| 📋 My Tasks | גריד משימות עם כפתורים לפי תפקיד + HintPanel |
+| 🏆 Leaderboard | טבלת הצוותים + top 3 אישי |
+| 💬 צ'אט DUDE | צ'אט קבוצתי — DUDE עונה כל 3 הודעות / על שאלות |
+| 📈 ההתקדמות שלי | כרטיס פרופיל לימודי אישי + גרף snapshots |
 
 #### `pages/teacher.vue` — דשבורד המורה
-עוטף את `MockMondayBoard.vue`.
+
+| Tab | תיאור |
+|---|---|
+| 📋 Monday Board | סימולטור Monday עם אישור/דחיית משימות |
+| 📊 Analytics | זמן פעיל + tasks/שעה לכל תלמיד |
+| 💬 צ'אטים DUDE | כל הערוצים הקבוצתיים + כפתור "נתח שיחה" |
+| 🧠 פרופילים | כרטיסי פרופיל לכל תלמיד שנותח |
 
 ### קומפוננטות
 
@@ -313,6 +377,15 @@ GET  /auth/me       → פרטי המשתמש המחובר
 
 #### `Leaderboard.vue`
 טבלת צוותים ממוינת לפי ניקוד. medals 🥇🥈🥉, highlight לצוות המחובר.
+
+#### `ChatChannel.vue`
+ממשק צ'אט קבוצתי. בועות הודעה צבעוניות לפי שולח (תלמיד / DUDE / עצמי). input עם Enter לשליחה. auto-scroll לתחתית.
+
+#### `TeacherChatPanel.vue`
+sidebar עם רשימת ערוצים לפי צוות. תצוגת כל ההודעות בפורמט Discord. כפתור "נתח שיחה" → POST `/dude/.../analyze`.
+
+#### `StudentProfileCard.vue`
+כרטיס פרופיל: ניקוד ז'רגון + soft skills עם progress bars, רשימת מונחים שזוהו, sparkline לתרשים ההתקדמות לאורך זמן.
 
 #### `MockMondayBoard.vue` — ממשק המורה
 עיצוב כהה בסגנון Monday.com עם 5 עמודות:
@@ -333,6 +406,13 @@ const { tasks, fetchTasks, submitTask, qaReview, pmReview, requestHint } =
     useTasks(teamId, userId);
 
 const { rows, fetchLeaderboard } = useLeaderboard();
+
+// DUDE
+const { channel, messages, sending, initChannel, sendMessage, startPolling } =
+    useChat(teamId, userId, userName);
+
+const { profile, snapshots, allProfiles, fetchMyProfile, fetchAllProfiles, triggerAnalysis } =
+    useStudentProfile();
 ```
 
 ---
@@ -353,6 +433,14 @@ const { rows, fetchLeaderboard } = useLeaderboard();
 | `refresh_tokens` | user_id, token_hash, expires_at, revoked_at | JWT refresh |
 | `audit_logs` | user_id, action, metadata | תיעוד אבטחה |
 | `failed_login_attempts` | email, attempts, locked_until | brute-force protection |
+| `chat_channels` | team_id, name | unique per team |
+| `chat_messages` | channel_id, sender_id, is_bot, content | הודעות תלמידים + DUDE |
+| `channel_participants` | channel_id, user_id, role | member / teacher |
+| `channel_analysis_log` | channel_id, message_count, summary | תיעוד ריצות ניתוח |
+| `student_profiles` | user_id, jargon_score, soft_skill_score, detected_terms | unique per user |
+| `profile_snapshots` | user_id, jargon_score, soft_skill_score, snapshot_at | לגרף התקדמות |
+| `teacher_alerts` | user_id, alert_type, message, is_read | knowledge_gap / stuck |
+| `jargon_events` | user_id, message_id, term | זיהוי מונחים ברמת הודעה |
 
 ### Views מובנים
 
@@ -387,6 +475,66 @@ hint 4+    →  ניכוי 10 נקודות מהצוות
 - **Hint #1** — כיוון כללי, מושג רלוונטי
 - **Hint #2** — כיוון ספציפי, שם הכלי
 - **Hint #3+** — צעד מעשי וישיר
+
+---
+
+## מערכת DUDE — צ'אט + בוט AI + פרופיל לימודי
+
+DUDE (Dynamic Understanding & Development Engine) היא שכבת למידה חכמה שמוסיפה לפלטפורמה:
+
+### זרימה מלאה
+
+```
+תלמיד כותב הודעה בצ'אט
+    │
+    ▼
+POST /dude/channels/:id/messages
+    │
+    ├─► ChatService.sendMessage()  — שמירת הודעה ב-DB
+    │
+    └─► DudeService.onStudentMessage()  — בדיקת trigger:
+            │
+            ├── כל 3 הודעות תלמיד → DUDE מגיב
+            ├── הודעה מסתיימת ב-"?" → DUDE מגיב תמיד
+            │
+            └─► AIService.generateDudeResponse(history)
+                    │
+                    ▼
+            ChatService.sendBotMessage()  → is_bot=true בDB
+```
+
+### ניתוח שיחה (מופעל ידנית ע"י מורה)
+
+```
+מורה לוחץ "נתח שיחה" ב-TeacherChatPanel
+    │
+    ▼
+POST /dude/channels/:id/analyze
+    │
+    └─► DudeService.analyzeChannel()
+            │
+            ├─► מקבץ הודעות לפי שולח
+            ├─► AIService.analyzeConversation(messages[]) לכל תלמיד
+            ├─► StudentProfileService.updateFromAnalysis() — weighted mean
+            ├─► profile_snapshots ← snapshot חדש לגרף ההתקדמות
+            └─► channel_analysis_log ← תיעוד הניתוח
+```
+
+### מה המורה רואה
+
+- **Tab "צ'אטים DUDE"** — כל הערוצים הקבוצתיים + כפתור ניתוח לכל ערוץ
+- **Tab "פרופילים"** — כרטיס לכל תלמיד: ניקוד ז'רגון (0-100), soft skills (0-100), מונחים שזוהו
+
+### מה התלמיד רואה
+
+- **Tab "צ'אט DUDE"** — צ'אט קבוצתי עם תגובות DUDE בכחול (גלוי לכולם)
+- **Tab "ההתקדמות שלי"** — כרטיס פרופיל עם ניקודים אישיים + sparkline התפתחות לאורך זמן
+
+### הגדרות בוט (ניתן לשנות ב-`dude.service.ts`)
+
+```typescript
+const DUDE_RESPONSE_INTERVAL = 3;  // כל כמה הודעות DUDE מגיב
+```
 
 ---
 
@@ -461,5 +609,9 @@ git push origin claude/learn-project-OVYbH
 | **מסך כניסה** | `frontend/pages/index.vue`, `frontend/composables/useUser.ts` |
 | **דשבורד תלמיד** | `frontend/pages/student.vue`, `frontend/components/SprintProgress.vue`, `frontend/components/HintPanel.vue` |
 | **Leaderboard** | `frontend/components/Leaderboard.vue`, `frontend/composables/useLeaderboard.ts` |
+| **DUDE — צ'אט קבוצתי** | `backend/src/chat/`, `frontend/components/ChatChannel.vue`, `frontend/composables/useChat.ts` |
+| **DUDE — בוט AI** | `backend/src/dude/`, `backend/src/integrations/ai/ai.service.ts` |
+| **DUDE — פרופיל לימודי** | `backend/src/student-profile/`, `frontend/components/StudentProfileCard.vue`, `frontend/composables/useStudentProfile.ts` |
+| **DUDE — ממשק מורה** | `frontend/components/TeacherChatPanel.vue`, `frontend/pages/teacher.vue` |
 | **DB ו-RLS** | `supabase/schema.sql`, `backend/migrations/` |
 | **טיפוסים משותפים** | `frontend/types/types.ts` |

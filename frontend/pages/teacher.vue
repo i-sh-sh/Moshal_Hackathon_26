@@ -1,156 +1,70 @@
 <script setup lang="ts">
-import { useTeacher } from '~/composables/useTeacher';
-import { useUser } from '~/composables/useUser';
-import type { Challenge, Team } from '~/types/types';
-import { LESSONS_PER_MISSION } from '~/services/demoData';
+import type { StudentProfile } from '~/types/types';
+import { useStudentProfile } from '~/composables/useStudentProfile';
 
-useHead({ title: 'TechSchool — לוח מורה' });
+useHead({ title: 'Teacher Dashboard — TeamSprintUp' });
 
-const { logout } = useUser();
-const router = useRouter();
+const activeTab = ref<'board' | 'analytics' | 'chats' | 'profiles'>('board');
 
-const activeTab = ref<'missions' | 'board' | 'analytics'>('missions');
+const { allProfiles, fetchAllProfiles } = useStudentProfile();
 
-const teacherData = useTeacher();
+const config = useRuntimeConfig();
+const base = config.public.apiBaseUrl;
 
-onMounted(() => {
-    teacherData.fetchChallenges();
-    teacherData.fetchTeams();
+// Enrich profiles with names from users endpoint
+const enrichedProfiles = ref<Array<StudentProfile & { name: string }>>([]);
+
+async function loadProfiles() {
+    await fetchAllProfiles();
+    const users = await $fetch<Array<{ id: string; name: string }>>(`${base}/users`).catch(() => []);
+    const nameMap = new Map(users.map((u) => [u.id, u.name]));
+    enrichedProfiles.value = allProfiles.value.map((p) => ({
+        ...p,
+        name: nameMap.get(p.userId) ?? 'תלמיד/ה',
+    }));
+}
+
+watch(activeTab, (tab) => {
+    if (tab === 'profiles') loadProfiles();
 });
-
-// ── Inline role panel state ────────────────────────────────────────────
-const rolePanel = ref<{ teamId: string; challengeId: string } | null>(null);
-
-function openRolePanel(teamId: string, challengeId: string) {
-    rolePanel.value = { teamId, challengeId };
-    teacherData.fetchStudents(teamId);
-}
-function closeRolePanel() {
-    rolePanel.value = null;
-}
-
-// ── Toast ──────────────────────────────────────────────────────────────
-const toast = ref<{ msg: string; type: 'success' | 'error' } | null>(null);
-function showToast(msg: string, type: 'success' | 'error' = 'success') {
-    toast.value = { msg, type };
-    setTimeout(() => { toast.value = null; }, 2800);
-}
-
-// ── Mission helpers ────────────────────────────────────────────────────
-type TeamMissionState = 'idle' | 'active' | 'completed';
-
-function teamMissionState(team: any, missionId: string): TeamMissionState {
-    const onMission = (team.currentChallengeId ?? team.current_challenge_id) === missionId;
-    if (!onMission) return 'idle';
-    if (team.isCompleted ?? team.is_completed) return 'completed';
-    return 'active';
-}
-
-function stateBadge(state: TeamMissionState) {
-    if (state === 'active') {
-        return { text: 'פעיל', cls: 'bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200' };
-    }
-    if (state === 'completed') {
-        return { text: 'הושלם', cls: 'bg-cyan-100 text-cyan-700 ring-1 ring-cyan-200' };
-    }
-    return { text: 'לא התחיל', cls: 'bg-gray-100 text-gray-500 ring-1 ring-gray-200' };
-}
-
-function missionOverallState(c: Challenge): TeamMissionState {
-    const states = teacherData.teams.value.map((t) => teamMissionState(t, c.id));
-    if (states.some((s) => s === 'active')) return 'active';
-    if (states.some((s) => s === 'completed')) return 'completed';
-    return 'idle';
-}
-
-function lessonsFor(c: Challenge): number {
-    return LESSONS_PER_MISSION[c.id] ?? 0;
-}
-
-function dateFor(c: Challenge): Date {
-    const raw = (c as any).createdAt ?? (c as any).created_at;
-    return raw ? new Date(raw) : new Date();
-}
-
-// ── Mission lifecycle handlers ─────────────────────────────────────────
-async function handleOpen(challengeId: string, teamId: string, teamName: string) {
-    await teacherData.openMission(challengeId, teamId);
-    showToast(`המשימה נפתחה ל${teamName}`);
-}
-
-async function handleClose(teamId: string, teamName: string) {
-    if (!confirm(`לסגור את המשימה הנוכחית של ${teamName}?`)) return;
-    await teacherData.closeMission(teamId);
-    showToast(`המשימה של ${teamName} נסגרה`);
-    if (rolePanel.value?.teamId === teamId) closeRolePanel();
-}
-
-async function handleReopen(teamId: string, teamName: string) {
-    await teacherData.reopenMission(teamId);
-    showToast(`המשימה של ${teamName} נפתחה מחדש`);
-}
-
-function handleLogout() {
-    logout();
-    router.push('/');
-}
 </script>
 
 <template>
-    <div class="min-h-screen bg-gray-50 flex" dir="rtl">
-        <TechSchoolSidebar school-label="School Test 01" :on-logout="handleLogout" />
+    <div class="min-h-screen bg-gray-900 flex flex-col">
+        <!-- Header -->
+        <header class="border-b border-gray-700 px-6 h-14 flex items-center gap-4">
+            <span class="text-xl">🚀</span>
+            <span class="font-bold text-white text-sm tracking-tight">TeamSprintUp</span>
+            <span class="text-xs text-gray-400 font-medium px-2 py-0.5 rounded-full bg-gray-800">Teacher</span>
 
-        <div class="flex-1 flex flex-col min-w-0">
-            <!-- Top score bar -->
-            <header class="bg-white border-b border-gray-200">
-                <div class="px-6 h-16 flex items-center gap-4">
-                    <div class="flex items-center gap-2">
-                        <div class="flex items-center gap-1.5 px-2 py-1 rounded-full bg-amber-50 ring-1 ring-amber-100">
-                            <span class="text-lg">🥇</span>
-                            <span class="text-sm font-extrabold text-amber-600 tabular-nums">62</span>
-                            <span class="text-[10px] text-gray-500 font-semibold">קהילה</span>
-                        </div>
-                        <div class="flex items-center gap-1.5 px-2 py-1 rounded-full bg-amber-50 ring-1 ring-amber-100">
-                            <span class="text-lg">🏆</span>
-                            <span class="text-sm font-extrabold text-amber-600 tabular-nums">90</span>
-                            <span class="text-[10px] text-gray-500 font-semibold">קבוצתי</span>
-                        </div>
-                        <div class="flex items-center gap-1.5 px-2 py-1 rounded-full bg-amber-50 ring-1 ring-amber-100">
-                            <span class="text-lg">🥉</span>
-                            <span class="text-sm font-extrabold text-amber-600 tabular-nums">0</span>
-                            <span class="text-[10px] text-gray-500 font-semibold">אישי</span>
-                        </div>
-                    </div>
+            <div class="flex-1" />
 
-                    <div class="flex-1" />
-
-                    <div class="flex gap-1 bg-gray-100 p-1 rounded-xl">
-                        <button
-                            :class="['px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors', activeTab === 'missions' ? 'bg-white text-[#3CC2EE] shadow-sm' : 'text-gray-500 hover:text-gray-800']"
-                            @click="activeTab = 'missions'"
-                        >🎯 משימות</button>
-                        <button
-                            :class="['px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors', activeTab === 'board' ? 'bg-white text-[#3CC2EE] shadow-sm' : 'text-gray-500 hover:text-gray-800']"
-                            @click="activeTab = 'board'"
-                        >📋 לוח Monday</button>
-                        <button
-                            :class="['px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors', activeTab === 'analytics' ? 'bg-white text-[#3CC2EE] shadow-sm' : 'text-gray-500 hover:text-gray-800']"
-                            @click="activeTab = 'analytics'"
-                        >📊 ניתוחים</button>
-                    </div>
-                </div>
-            </header>
-
-            <!-- Breadcrumb -->
-            <div class="px-8 pt-6 pb-2">
-                <p class="text-xs text-gray-400 mb-1">
-                    <span class="text-[#3CC2EE] font-semibold">לוח מורה</span>
-                    <span class="mx-1">›</span>
-                    <span>
-                        {{ activeTab === 'missions' ? 'ניהול משימות' :
-                           activeTab === 'board' ? 'לוח Monday' : 'ניתוחים' }}
-                    </span>
-                </p>
+            <!-- Tabs -->
+            <div class="flex gap-1 bg-gray-800 p-1 rounded-xl flex-wrap">
+                <button
+                    :class="['px-4 py-1.5 rounded-lg text-xs font-medium transition-colors', activeTab === 'board' ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-gray-200']"
+                    @click="activeTab = 'board'"
+                >
+                    📋 Monday Board
+                </button>
+                <button
+                    :class="['px-4 py-1.5 rounded-lg text-xs font-medium transition-colors', activeTab === 'analytics' ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-gray-200']"
+                    @click="activeTab = 'analytics'"
+                >
+                    📊 Analytics
+                </button>
+                <button
+                    :class="['px-4 py-1.5 rounded-lg text-xs font-medium transition-colors', activeTab === 'chats' ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-gray-200']"
+                    @click="activeTab = 'chats'"
+                >
+                    💬 צ'אטים DUDE
+                </button>
+                <button
+                    :class="['px-4 py-1.5 rounded-lg text-xs font-medium transition-colors', activeTab === 'profiles' ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-gray-200']"
+                    @click="activeTab = 'profiles'"
+                >
+                    🧠 פרופילים
+                </button>
             </div>
 
             <!-- ─── MISSIONS TAB ─── -->
@@ -208,85 +122,49 @@ function handleLogout() {
 
                                     <div class="flex-1" />
 
-                                    <!-- IDLE: open -->
-                                    <button
-                                        v-if="teamMissionState(t, c.id) === 'idle'"
-                                        class="px-3 py-1 bg-[#3CC2EE] hover:bg-[#27b3df] text-white rounded-full text-xs font-bold transition-colors shadow-sm"
-                                        @click="handleOpen(c.id, t.id, t.name)"
-                                    >
-                                        🚀 פתח לצוות
-                                    </button>
-
-                                    <!-- ACTIVE: assign roles + close -->
-                                    <template v-else-if="teamMissionState(t, c.id) === 'active'">
-                                        <button
-                                            class="px-3 py-1 bg-purple-500 hover:bg-purple-400 text-white rounded-full text-xs font-bold transition-colors shadow-sm"
-                                            @click="openRolePanel(t.id, c.id)"
-                                        >
-                                            👥 שבץ תפקידים
-                                        </button>
-                                        <button
-                                            class="px-3 py-1 bg-emerald-500 hover:bg-emerald-400 text-white rounded-full text-xs font-bold transition-colors shadow-sm"
-                                            @click="handleClose(t.id, t.name)"
-                                        >
-                                            🏁 סגור משימה
-                                        </button>
-                                    </template>
-
-                                    <!-- COMPLETED: reopen -->
-                                    <button
-                                        v-else
-                                        class="px-3 py-1 bg-amber-500 hover:bg-amber-400 text-white rounded-full text-xs font-bold transition-colors shadow-sm"
-                                        @click="handleReopen(t.id, t.name)"
-                                    >
-                                        🔄 פתח מחדש
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Inline role assignment panel (when this card is the active one) -->
-                        <div
-                            v-if="rolePanel && rolePanel.challengeId === c.id"
-                            class="border-t border-gray-200 bg-gray-50 p-4"
-                        >
-                            <RoleAssignmentPanel
-                                :team-id="rolePanel.teamId"
-                                :challenge-id="rolePanel.challengeId"
-                                @close="closeRolePanel"
-                                @saved="showToast('שיבוץ התפקידים נשמר')"
-                            />
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- ─── BOARD TAB ─── -->
-            <div v-else-if="activeTab === 'board'" class="flex-1">
-                <MockMondayBoard />
-            </div>
-
-            <!-- ─── ANALYTICS TAB ─── -->
-            <div v-else class="flex-1 px-8 pb-10">
-                <div class="max-w-5xl">
-                    <h1 class="text-2xl font-extrabold text-gray-900 mb-4">ניתוחי תלמידים</h1>
-                    <AnalyticsDashboard />
-                </div>
+        <!-- Analytics -->
+        <div v-else-if="activeTab === 'analytics'" class="flex-1 p-6 bg-gray-50">
+            <div class="max-w-5xl mx-auto">
+                <h1 class="text-xl font-bold text-gray-800 mb-5">Student Analytics</h1>
+                <AnalyticsDashboard />
             </div>
         </div>
 
-        <!-- Toast -->
-        <Teleport to="body">
-            <Transition name="toast">
-                <div
-                    v-if="toast"
-                    :class="['fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-2xl shadow-lg text-sm font-bold pointer-events-none', toast.type === 'success' ? 'bg-emerald-500 text-white' : 'bg-red-500 text-white']"
-                    dir="rtl"
-                >
-                    {{ toast.msg }}
+        <!-- DUDE Chats -->
+        <div v-else-if="activeTab === 'chats'" class="flex-1 p-6" style="min-height: 0">
+            <div class="max-w-5xl mx-auto h-full" style="height: calc(100vh - 120px)">
+                <TeacherChatPanel />
+            </div>
+        </div>
+
+        <!-- Student Profiles -->
+        <div v-else-if="activeTab === 'profiles'" class="flex-1 p-6 bg-gray-50">
+            <div class="max-w-5xl mx-auto">
+                <div class="flex items-center gap-3 mb-5">
+                    <h1 class="text-xl font-bold text-gray-800">פרופילים לימודיים — DUDE</h1>
+                    <span class="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">{{ enrichedProfiles.length }} תלמידים</span>
+                    <button
+                        class="ml-auto text-xs bg-indigo-600 text-white px-3 py-1.5 rounded-lg hover:bg-indigo-700 transition-colors"
+                        @click="loadProfiles"
+                    >
+                        רענן
+                    </button>
                 </div>
-            </Transition>
-        </Teleport>
+
+                <div v-if="!enrichedProfiles.length" class="text-center py-16 text-gray-400 text-sm">
+                    אין פרופילים עדיין. תלמידים יופיעו כאן לאחר שינתחו שיחות.
+                </div>
+
+                <div v-else class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    <StudentProfileCard
+                        v-for="p in enrichedProfiles"
+                        :key="p.id"
+                        :profile="p"
+                        :user-name="p.name"
+                    />
+                </div>
+            </div>
+        </div>
     </div>
 </template>
 
