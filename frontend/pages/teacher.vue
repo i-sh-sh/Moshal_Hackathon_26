@@ -114,6 +114,7 @@ async function loadProfiles() {
         ...p,
         // Convert readonly array to mutable array to satisfy StudentProfile interface
         detectedTerms: [...p.detectedTerms],
+        struggleAreas: [...p.struggleAreas],
         name: nameMap.get(p.userId) ?? 'תלמיד לא מזוהה',
     }));
 }
