@@ -39,7 +39,7 @@ create table if not exists public.users (
   name              text not null,
   email             text not null unique,
   current_team_id   uuid references public.teams(id),
-  current_role      text check (current_role in ('pm','qa','dev','hardware')),
+  "current_role"    text check ("current_role" in ('pm','qa','dev','hardware')),
   total_active_time integer not null default 0,  -- seconds
   last_login_at     timestamptz,
   created_at        timestamptz not null default now(),
@@ -163,6 +163,76 @@ end;
 $$;
 
 -- ============================================================
+-- STUDENT ROLE HISTORY (teacher workflow)
+-- ============================================================
+create table if not exists public.student_role_history (
+  id                 uuid primary key default gen_random_uuid(),
+  user_id            uuid not null references public.users(id) on delete cascade,
+  team_id            uuid not null references public.teams(id) on delete cascade,
+  challenge_id       uuid references public.challenges(id) on delete set null,
+  "role"             text not null check ("role" in ('pm','qa','dev','hardware')),
+  assignment_source  text not null check (assignment_source in ('manual','automatic')),
+  assigned_by        text,
+  created_at         timestamptz not null default now()
+);
+
+create index if not exists idx_role_history_user on public.student_role_history(user_id);
+create index if not exists idx_role_history_team on public.student_role_history(team_id);
+
+-- ============================================================
+-- QUIZZES (pre/post-mission knowledge measurement)
+-- ============================================================
+create table if not exists public.quiz_questions (
+  id            uuid primary key default gen_random_uuid(),
+  scope         text not null check (scope in ('role','mission')),
+  "role"        text check ("role" in ('pm','qa','dev','hardware')),
+  challenge_id  uuid references public.challenges(id) on delete cascade,
+  prompt        text not null,
+  options       jsonb not null,
+  correct_index integer not null check (correct_index >= 0),
+  created_at    timestamptz not null default now(),
+  constraint quiz_questions_scope_consistency check (
+    (scope = 'role'    and "role" is not null)
+    or
+    (scope = 'mission' and challenge_id is not null)
+  )
+);
+
+create index if not exists idx_quiz_questions_role      on public.quiz_questions("role")       where scope = 'role';
+create index if not exists idx_quiz_questions_challenge on public.quiz_questions(challenge_id) where scope = 'mission';
+
+create table if not exists public.quiz_attempts (
+  id                uuid primary key default gen_random_uuid(),
+  user_id           uuid not null references public.users(id) on delete cascade,
+  team_id           uuid references public.teams(id) on delete set null,
+  challenge_id      uuid not null references public.challenges(id) on delete cascade,
+  phase             text not null check (phase in ('pre','post')),
+  started_at        timestamptz not null default now(),
+  submitted_at      timestamptz,
+  score             integer,
+  total             integer not null,
+  paired_attempt_id uuid references public.quiz_attempts(id) on delete set null,
+  learning_gain     integer,
+  constraint quiz_attempts_unique_phase unique (user_id, challenge_id, phase)
+);
+
+create index if not exists idx_quiz_attempts_user      on public.quiz_attempts(user_id);
+create index if not exists idx_quiz_attempts_challenge on public.quiz_attempts(challenge_id);
+
+create table if not exists public.quiz_attempt_questions (
+  id              uuid primary key default gen_random_uuid(),
+  attempt_id      uuid not null references public.quiz_attempts(id) on delete cascade,
+  question_id     uuid not null references public.quiz_questions(id) on delete restrict,
+  order_index     integer not null,
+  selected_index  integer,
+  is_correct      boolean,
+  answered_at     timestamptz,
+  constraint quiz_attempt_questions_unique unique (attempt_id, order_index)
+);
+
+create index if not exists idx_qaq_attempt on public.quiz_attempt_questions(attempt_id);
+
+-- ============================================================
 -- INDEXES
 -- ============================================================
 create index if not exists tasks_team_id_idx      on public.tasks(team_id);
@@ -196,7 +266,7 @@ select
   u.id,
   u.name,
   u.current_team_id,
-  u.current_role,
+  u."current_role",
   count(t.id) filter (where t.status = 'approved') as approved_tasks,
   u.total_active_time,
   rank() over (
@@ -213,7 +283,7 @@ select
   u.name,
   u.email,
   u.current_team_id,
-  u.current_role,
+  u."current_role",
   u.total_active_time,
   count(tk.id)                                         as total_tasks,
   count(tk.id) filter (where tk.status = 'approved')   as approved_tasks,

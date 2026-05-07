@@ -23,6 +23,8 @@ import { TeamsModule } from './teams/teams.module';
 import { UsersModule } from './users/users.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
 import { MockMondayModule } from './mock-monday/mock-monday.module';
+import { TeacherModule } from './teacher/teacher.module';
+import { QuizzesModule } from './quizzes/quizzes.module';
 
 @Module({
     imports: [
@@ -44,6 +46,8 @@ import { MockMondayModule } from './mock-monday/mock-monday.module';
         HintsModule,
         WebhooksModule,
         MockMondayModule,
+        TeacherModule,
+        QuizzesModule,
     ],
 })
 export class AppModule {}

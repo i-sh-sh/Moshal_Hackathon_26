@@ -1,22 +1,120 @@
 {
   "project": {
-    "name": "TeamSprintUp",
-    "description": "פלטפורמת סימולציה של סביבת עבודה הייטק לתלמידי Tech School. צוותים עובדים בתפקידים אמיתיים, מגישים משימות דרך pipeline אישורים, ומקבלים hints מ-AI מבוסס סילבוס.",
-    "version": "1.0.0",
+    "name": "SprintUp",
+    "description": "Progress Intelligence layer over TechSchool's existing LMS. Measures the path students take through 3D-modeling missions — task progress, AI-bot use, jargon understanding, evidence uploads, and team activity — and surfaces it to teachers and mentors. Does NOT replace the LMS.",
+    "positioning": "Not a new LMS. Not a free AI chat. Not a file dropbox. SprintUp adds the missing analytics + process layer on top of TechSchool's existing 3-product/year flow.",
+    "version": "1.1.0",
     "repository": "https://github.com/i-sh-sh/Moshal_Hackathon_26",
     "stack": {
       "frontend": "Nuxt 3 (Vue 3) + TailwindCSS",
       "backend": "NestJS + TypeScript",
       "database": "Supabase (PostgreSQL)",
       "ai": "Anthropic Claude (claude-sonnet-4-6)",
-      "mondayIntegration": "Monday.com GraphQL API + Simulator"
+      "mondayIntegration": "Monday.com GraphQL API + Simulator (legacy from v1)"
     },
     "deployment": {
       "frontend": "Vercel (SSR)",
       "backend": "Railway",
       "database": "Supabase (hosted)"
-    }
+    },
+    "teamSplit": {
+      "ourTeam_nissim": [
+        "Role assignment to students for 3D-print missions (TeacherModule)",
+        "Pre/post-mission quizzes — knowledge measurement (planned)"
+      ],
+      "otherTeam": [
+        "Azure setup",
+        "In-app chat / Discord-style channels"
+      ]
+    },
+    "personas": ["student", "teacher", "mentor", "admin"]
   },
+
+  "recentUpdates": [
+    {
+      "date": "2026-05-07",
+      "branch": "nissim/backend-foundation",
+      "by": "Nissim",
+      "title": "Pivot: 3D-print role taxonomy + Teacher role-assignment workflow",
+      "summary": "Replaced the pm/qa/dev/hardware role taxonomy with the 3D-print roles designer/editor/qa/printer everywhere (DB CHECK constraints, seed, task pipeline guards, frontend labels/colors). Added a TeacherModule that lets a teacher publish a challenge to a single team and assign per-student roles either manually or via a fair auto-rotation algorithm. Added student_role_history for audit/rotation history.",
+      "filesAdded": [
+        "backend/migrations/003_teacher_workflow.sql",
+        "backend/src/teacher/teacher.module.ts",
+        "backend/src/teacher/teacher.controller.ts",
+        "backend/src/teacher/teacher.service.ts",
+        "backend/src/teacher/teacher.types.ts",
+        "backend/src/teacher/dto/publish-challenge.dto.ts",
+        "backend/src/teacher/dto/assign-roles.dto.ts",
+        "frontend/composables/useTeacher.ts",
+        "frontend/components/RoleAssignmentPanel.vue"
+      ],
+      "filesModified": [
+        "supabase/schema.sql",
+        "backend/src/seed.ts",
+        "backend/src/tasks/tasks.service.ts",
+        "backend/src/admin/dto/create-user.dto.ts",
+        "backend/src/admin/dto/update-user.dto.ts",
+        "backend/src/common/types/authenticated-user.ts",
+        "backend/src/rag/rag.service.ts",
+        "backend/src/auth/jwt.service.spec.ts",
+        "backend/src/app.module.ts",
+        "frontend/types/types.ts",
+        "frontend/pages/teacher.vue",
+        "frontend/pages/student.vue",
+        "frontend/pages/index.vue",
+        "frontend/components/MockMondayBoard.vue",
+        "frontend/components/AnalyticsDashboard.vue",
+        "frontend/services/mockService.ts"
+      ],
+      "newEndpoints": [
+        "GET  /api/teacher/challenges",
+        "GET  /api/teacher/teams",
+        "GET  /api/teacher/teams/:teamId/students-with-role-history",
+        "POST /api/teacher/challenges/:challengeId/publish",
+        "POST /api/teacher/teams/:teamId/assign-roles",
+        "POST /api/teacher/teams/:teamId/auto-assign-roles"
+      ],
+      "status": "Both backend + frontend builds pass. Migration not yet applied to live DB. Not committed yet."
+    },
+    {
+      "date": "2026-05-07",
+      "branch": "nissim/backend-foundation",
+      "by": "Nissim",
+      "title": "Pre/post-mission knowledge quizzes",
+      "summary": "Per the SprintUp Progress Intelligence pivot — each mission now brackets a pre-quiz (entry knowledge) and a post-quiz (exit knowledge) per student. Pre-quiz randomly samples 5–7 questions from a pool (role-knowledge filtered by the student's role + mission-specific). Post-quiz reuses the exact same questions so learning_gain = post_score − pre_score is stored. Mission-specific question pool is empty until the team supplies questions.",
+      "filesAdded": [
+        "backend/migrations/004_quizzes.sql",
+        "backend/src/quizzes/quizzes.module.ts",
+        "backend/src/quizzes/quizzes.controller.ts",
+        "backend/src/quizzes/quizzes.service.ts",
+        "backend/src/quizzes/quizzes.types.ts",
+        "backend/src/quizzes/dto/start-quiz.dto.ts",
+        "backend/src/quizzes/dto/submit-quiz.dto.ts",
+        "frontend/composables/useQuizzes.ts",
+        "frontend/components/QuizModal.vue"
+      ],
+      "filesModified": [
+        "supabase/schema.sql",
+        "backend/src/seed.ts",
+        "backend/src/app.module.ts",
+        "frontend/types/types.ts",
+        "frontend/pages/student.vue"
+      ],
+      "newEndpoints": [
+        "POST /api/quizzes/missions/:challengeId/start",
+        "POST /api/quizzes/attempts/:attemptId/submit",
+        "GET  /api/quizzes/missions/:challengeId/me?userId=&phase=",
+        "GET  /api/quizzes/missions/:challengeId/results"
+      ],
+      "schemaTables": [
+        "quiz_questions      — pool: scope=role|mission, role nullable, challenge_id nullable",
+        "quiz_attempts       — one per (user × challenge × phase), unique constraint, paired_attempt_id + learning_gain on post",
+        "quiz_attempt_questions — frozen question selection per attempt"
+      ],
+      "seedQuestionBank": "16 generic role-knowledge questions: 4 designer, 4 editor, 4 qa, 4 printer (3D-print + jargon focused). Mission-specific questions are NOT seeded — to be supplied per mission.",
+      "status": "Both backend + frontend builds pass. Migration 004 not yet applied to live DB. Not committed yet."
+    }
+  ],
 
   "architecture": {
     "overview": "Teacher triggers challenges via Monday.com (or simulator) → NestJS processes webhooks → Tasks flow through approval pipeline (Dev→QA→PM→Teacher) → Supabase stores all state → Nuxt frontend reflects live data",
@@ -28,7 +126,8 @@
       "approved"
     ],
     "taskStatusFlowDescription": "Dev submits → QA reviews (checklist) → PM approves (triggers Monday update + hardware LED) → Teacher approves via Monday webhook → team completion checked",
-    "roles": ["pm", "qa", "dev", "hardware"],
+    "roles": ["designer", "editor", "qa", "printer"],
+    "roleTaxonomyNote": "Pivoted 2026-05-07 from pm/qa/dev/hardware to designer/editor/qa/printer for 3D-print missions. Mapping: dev→designer, pm→editor, hardware→printer, qa unchanged.",
     "hintSystem": {
       "freeHintsPerUserPerTeam": 3,
       "pointsDeductedPerExtraHint": 10,
