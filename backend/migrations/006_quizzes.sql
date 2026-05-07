@@ -1,33 +1,38 @@
--- Migration 004 — Pre/post-mission knowledge quizzes
+-- Migration 006 — Pre/post-mission knowledge quizzes
 -- ============================================================
--- A pool of multiple-choice questions, plus per-student quiz
--- attempts that capture pre-mission and post-mission knowledge.
--- The same questions are asked again in the post phase so we can
--- compute learning_gain = post_score − pre_score per student.
+-- A pool of multiple-choice questions plus per-student attempts that
+-- capture pre-mission and post-mission knowledge. The same questions are
+-- asked again in the post phase so we can compute
+--   learning_gain = post_score − pre_score per student.
 --
+-- Role values match the existing users.current_role taxonomy
+-- (pm/qa/dev/hardware) — the new "Designer/Editor/QA/Printer" labels are
+-- a UI-layer mapping only.
+--
+-- "role" is quoted because it's a Postgres reserved word.
 -- Idempotent — safe to re-run.
 -- ============================================================
 
 -- ── Pool of questions ──────────────────────────────────────────────────────
--- Generic-per-role questions: scope='role',     role=<role>,        challenge_id=null
--- Mission-specific questions: scope='mission',  role=null (or any), challenge_id=<challenge>
+-- Generic-per-role: scope='role',     "role"=<role>,     challenge_id=null
+-- Mission-specific: scope='mission',  "role"=null,        challenge_id=<challenge>
 create table if not exists public.quiz_questions (
     id            uuid primary key default gen_random_uuid(),
     scope         text not null check (scope in ('role', 'mission')),
-    role          text check (role in ('designer', 'editor', 'qa', 'printer')),
+    "role"        text check ("role" in ('pm', 'qa', 'dev', 'hardware')),
     challenge_id  uuid references public.challenges(id) on delete cascade,
     prompt        text not null,
-    options       jsonb not null,                 -- ["A","B","C","D"]
+    options       jsonb not null,
     correct_index integer not null check (correct_index >= 0),
     created_at    timestamptz not null default now(),
     constraint quiz_questions_scope_consistency check (
-        (scope = 'role'    and role is not null)
+        (scope = 'role'    and "role" is not null)
         or
         (scope = 'mission' and challenge_id is not null)
     )
 );
 
-create index if not exists idx_quiz_questions_role      on public.quiz_questions(role)         where scope = 'role';
+create index if not exists idx_quiz_questions_role      on public.quiz_questions("role")     where scope = 'role';
 create index if not exists idx_quiz_questions_challenge on public.quiz_questions(challenge_id) where scope = 'mission';
 
 -- ── A student's attempt for a (mission, phase) pair ────────────────────────
@@ -39,11 +44,10 @@ create table if not exists public.quiz_attempts (
     phase               text not null check (phase in ('pre', 'post')),
     started_at          timestamptz not null default now(),
     submitted_at        timestamptz,
-    score               integer,                      -- null until submitted
+    score               integer,
     total               integer not null,
     paired_attempt_id   uuid references public.quiz_attempts(id) on delete set null,
-                                                      -- post.paired_attempt_id → pre attempt id
-    learning_gain       integer,                      -- post.score − pre.score, set on post submit
+    learning_gain       integer,
     constraint quiz_attempts_unique_phase unique (user_id, challenge_id, phase)
 );
 
@@ -58,7 +62,7 @@ create table if not exists public.quiz_attempt_questions (
     attempt_id      uuid not null references public.quiz_attempts(id) on delete cascade,
     question_id     uuid not null references public.quiz_questions(id) on delete restrict,
     order_index     integer not null,
-    selected_index  integer,                          -- null until answered
+    selected_index  integer,
     is_correct      boolean,
     answered_at     timestamptz,
     constraint quiz_attempt_questions_unique unique (attempt_id, order_index)

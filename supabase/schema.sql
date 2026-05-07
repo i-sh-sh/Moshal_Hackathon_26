@@ -39,7 +39,7 @@ create table if not exists public.users (
   name              text not null,
   email             text not null unique,
   current_team_id   uuid references public.teams(id),
-  "current_role"    text check ("current_role" in ('designer','editor','qa','printer')),
+  "current_role"    text check ("current_role" in ('pm','qa','dev','hardware')),
   total_active_time integer not null default 0,  -- seconds
   last_login_at     timestamptz,
   created_at        timestamptz not null default now(),
@@ -72,7 +72,7 @@ create table if not exists public.tasks (
   id                    uuid primary key default gen_random_uuid(),
   sprint_id             uuid not null references public.sprints(id) on delete cascade,
   team_id               uuid not null references public.teams(id) on delete cascade,
-  assigned_role         text not null check (assigned_role in ('designer','editor','qa','printer')),
+  assigned_role         text not null check (assigned_role in ('pm','qa','dev','hardware')),
   title                 text not null,
   description           text,
   status                text not null default 'pending'
@@ -170,7 +170,7 @@ create table if not exists public.student_role_history (
   user_id            uuid not null references public.users(id) on delete cascade,
   team_id            uuid not null references public.teams(id) on delete cascade,
   challenge_id       uuid references public.challenges(id) on delete set null,
-  "role"             text not null check ("role" in ('designer','editor','qa','printer')),
+  "role"             text not null check ("role" in ('pm','qa','dev','hardware')),
   assignment_source  text not null check (assignment_source in ('manual','automatic')),
   assigned_by        text,
   created_at         timestamptz not null default now()
@@ -185,20 +185,20 @@ create index if not exists idx_role_history_team on public.student_role_history(
 create table if not exists public.quiz_questions (
   id            uuid primary key default gen_random_uuid(),
   scope         text not null check (scope in ('role','mission')),
-  role          text check (role in ('designer','editor','qa','printer')),
+  "role"        text check ("role" in ('pm','qa','dev','hardware')),
   challenge_id  uuid references public.challenges(id) on delete cascade,
   prompt        text not null,
   options       jsonb not null,
   correct_index integer not null check (correct_index >= 0),
   created_at    timestamptz not null default now(),
   constraint quiz_questions_scope_consistency check (
-    (scope = 'role'    and role is not null)
+    (scope = 'role'    and "role" is not null)
     or
     (scope = 'mission' and challenge_id is not null)
   )
 );
 
-create index if not exists idx_quiz_questions_role      on public.quiz_questions(role)         where scope = 'role';
+create index if not exists idx_quiz_questions_role      on public.quiz_questions("role")       where scope = 'role';
 create index if not exists idx_quiz_questions_challenge on public.quiz_questions(challenge_id) where scope = 'mission';
 
 create table if not exists public.quiz_attempts (
