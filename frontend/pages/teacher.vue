@@ -1,17 +1,108 @@
 <script setup lang="ts">
-import type { StudentProfile } from '~/types/types';
+import { useTeacher } from '~/composables/useTeacher';
+import { useUser } from '~/composables/useUser';
+import type { Challenge, StudentProfile } from '~/types/types';
+import { LESSONS_PER_MISSION } from '~/services/demoData';
 import { useStudentProfile } from '~/composables/useStudentProfile';
 
 useHead({ title: 'Teacher Dashboard — TeamSprintUp' });
 
-const activeTab = ref<'board' | 'analytics' | 'chats' | 'profiles'>('board');
+const { logout } = useUser();
+const router = useRouter();
+const activeTab = ref<'missions' | 'board' | 'analytics' | 'chats' | 'profiles'>('missions');
 
-const { allProfiles, alerts, fetchAllProfiles, fetchAlerts, markAlertRead, markAllAlertsRead } = useStudentProfile();
+const teacherData = useTeacher();
+const { 
+    allProfiles, 
+    alerts, 
+    fetchAllProfiles, 
+    fetchAlerts, 
+    markAlertRead, 
+    markAllAlertsRead 
+} = useStudentProfile();
 
 const config = useRuntimeConfig();
 const base = config.public.apiBaseUrl;
 
-// Enrich profiles with names from users endpoint
+onMounted(() => {
+    teacherData.fetchChallenges();
+    teacherData.fetchTeams();
+    fetchAlerts();
+});
+
+// ── Inline role panel state ────────────────────────────────────────────
+const rolePanel = ref<{ teamId: string; challengeId: string } | null>(null);
+
+function openRolePanel(teamId: string, challengeId: string) {
+    rolePanel.value = { teamId, challengeId };
+    teacherData.fetchStudents(teamId);
+}
+function closeRolePanel() {
+    rolePanel.value = null;
+}
+
+// ── Toast ──────────────────────────────────────────────────────────────
+const toast = ref<{ msg: string; type: 'success' | 'error' } | null>(null);
+function showToast(msg: string, type: 'success' | 'error' = 'success') {
+    toast.value = { msg, type };
+    setTimeout(() => { toast.value = null; }, 2800);
+}
+
+// ── Mission helpers ────────────────────────────────────────────────────
+type TeamMissionState = 'idle' | 'active' | 'completed';
+
+function teamMissionState(team: any, missionId: string): TeamMissionState {
+    const onMission = (team.currentChallengeId ?? team.current_challenge_id) === missionId;
+    if (!onMission) return 'idle';
+    if (team.isCompleted ?? team.is_completed) return 'completed';
+    return 'active';
+}
+
+function stateBadge(state: TeamMissionState) {
+    if (state === 'active') {
+        return { text: 'פעיל', cls: 'bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200' };
+    }
+    if (state === 'completed') {
+        return { text: 'הושלם', cls: 'bg-cyan-100 text-cyan-700 ring-1 ring-cyan-200' };
+    }
+    return { text: 'לא התחיל', cls: 'bg-gray-100 text-gray-500 ring-1 ring-gray-200' };
+}
+
+function missionOverallState(c: Challenge): TeamMissionState {
+    const states = teacherData.teams.value.map((t) => teamMissionState(t, c.id));
+    if (states.some((s) => s === 'active')) return 'active';
+    if (states.some((s) => s === 'completed')) return 'completed';
+    return 'idle';
+}
+
+function lessonsFor(c: Challenge): number {
+    return LESSONS_PER_MISSION[c.id] ?? 0;
+}
+
+function dateFor(c: Challenge): Date {
+    const raw = (c as any).createdAt ?? (c as any).created_at;
+    return raw ? new Date(raw) : new Date();
+}
+
+// ── Mission lifecycle handlers ─────────────────────────────────────────
+async function handleOpen(challengeId: string, teamId: string, teamName: string) {
+    await teacherData.openMission(challengeId, teamId);
+    showToast(`המשימה נפתחה ל${teamName}`);
+}
+
+async function handleClose(teamId: string, teamName: string) {
+    if (!confirm(`לסגור את המשימה הנוכחית של ${teamName}?`)) return;
+    await teacherData.closeMission(teamId);
+    showToast(`המשימה של ${teamName} נסגרה`);
+    if (rolePanel.value?.teamId === teamId) closeRolePanel();
+}
+
+async function handleReopen(teamId: string, teamName: string) {
+    await teacherData.reopenMission(teamId);
+    showToast(`המשימה של ${teamName} נפתחה מחדש`);
+}
+
+// ── Profile Enrichment (from recent master) ───────────────────────────
 const enrichedProfiles = ref<Array<StudentProfile & { name: string }>>([]);
 
 async function loadProfiles() {
@@ -23,6 +114,7 @@ async function loadProfiles() {
         ...p,
         // Convert readonly array to mutable array to satisfy StudentProfile interface
         detectedTerms: [...p.detectedTerms],
+        struggleAreas: [...p.struggleAreas],
         name: nameMap.get(p.userId) ?? 'תלמיד לא מזוהה',
     }));
 }
@@ -32,12 +124,10 @@ const highAlerts = computed(() => alerts.value.filter((a) => !a.isRead));
 watch(activeTab, (tab) => {
     if (tab === 'profiles') loadProfiles();
 });
-
-onMounted(() => fetchAlerts());
 </script>
 
 <template>
-    <div class="min-h-screen bg-gray-900 flex flex-col">
+    <div class="min-h-screen bg-gray-900 flex flex-col" dir="rtl">
         <!-- Header -->
         <header class="border-b border-gray-700 px-6 h-14 flex items-center gap-4">
             <span class="text-xl">🚀</span>
@@ -48,6 +138,12 @@ onMounted(() => fetchAlerts());
 
             <!-- Tabs -->
             <div class="flex gap-1 bg-gray-800 p-1 rounded-xl flex-wrap">
+                <button
+                    :class="['px-4 py-1.5 rounded-lg text-xs font-medium transition-colors', activeTab === 'missions' ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-gray-200']"
+                    @click="activeTab = 'missions'"
+                >
+                    🎯 משימות
+                </button>
                 <button
                     :class="['px-4 py-1.5 rounded-lg text-xs font-medium transition-colors', activeTab === 'board' ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-gray-200']"
                     @click="activeTab = 'board'"
@@ -78,21 +174,127 @@ onMounted(() => fetchAlerts());
             </div>
         </header>
 
-        <!-- ─── BOARD TAB ─── -->
-        <div v-if="activeTab === 'board'" class="flex-1 bg-gray-50 p-6 overflow-y-auto">
-            <div class="max-w-6xl mx-auto">
-                <MockMondayBoard />
-            </div>
-        </div>
+        <!-- Main Content Area -->
+        <main class="flex-1 overflow-auto bg-gray-50 flex flex-col">
+            
+            <!-- 1. Missions Tab -->
+            <div v-if="activeTab === 'missions'" class="flex-1 px-8 py-10">
+                <div class="max-w-6xl mx-auto">
+                    <div class="mb-8">
+                        <h1 class="text-3xl font-black text-gray-900 tracking-tight">ניהול משימות וצוותים</h1>
+                        <p class="text-sm text-gray-500 mt-1">פתחו משימה לצוות, שבצו תפקידים, וסגרו את המשימה כשהיא הושלמה.</p>
+                    </div>
 
-        <!-- Analytics -->
-        <div v-else-if="activeTab === 'analytics'" class="flex-1 p-6 bg-gray-50">
-            <div class="max-w-5xl mx-auto">
-                <h1 class="text-xl font-bold text-gray-800 mb-5">Student Analytics</h1>
-                <AnalyticsDashboard />
+                    <!-- Mission cards -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <div
+                            v-for="c in teacherData.challenges.value"
+                            :key="c.id"
+                            class="bg-white rounded-3xl border border-gray-200 shadow-sm flex flex-col overflow-hidden transition-all hover:shadow-md"
+                        >
+                            <!-- Header strip -->
+                            <div class="px-6 py-4 bg-gradient-to-l from-gray-50 to-white border-b border-gray-100 flex items-center justify-between">
+                                <div class="flex items-center gap-3">
+                                    <span class="text-2xl">🏆</span>
+                                    <span class="text-[11px] uppercase font-black tracking-widest text-gray-400">Mission</span>
+                                </div>
+                                <span :class="['text-[11px] font-bold px-3 py-1 rounded-full shadow-sm', stateBadge(missionOverallState(c)).cls]">
+                                    {{ stateBadge(missionOverallState(c)).text }}
+                                </span>
+                            </div>
+
+                            <!-- Body -->
+                            <div class="p-6 flex flex-col gap-4">
+                                <h3 class="text-xl font-black text-gray-900 leading-tight">{{ c.title }}</h3>
+                                <p class="text-sm text-gray-500 leading-relaxed line-clamp-3">{{ c.description }}</p>
+
+                                <div class="flex items-center gap-4 text-xs text-gray-400 font-bold">
+                                    <span class="flex items-center gap-1.5">
+                                        <span>📅</span>
+                                        <span>{{ dateFor(c).toLocaleDateString('he-IL') }}</span>
+                                    </span>
+                                    <span class="w-1 h-1 bg-gray-300 rounded-full"></span>
+                                    <span>{{ lessonsFor(c) }} שיעורי האתגר</span>
+                                </div>
+
+                                <!-- Per-team rows -->
+                                <div class="mt-4 space-y-3">
+                                    <div
+                                        v-for="t in teacherData.teams.value"
+                                        :key="t.id"
+                                        class="bg-gray-50 rounded-2xl border border-gray-100 p-4 flex flex-wrap items-center gap-3"
+                                    >
+                                        <div class="flex flex-col">
+                                            <span class="text-sm font-black text-gray-900">👥 {{ t.name }}</span>
+                                            <span :class="['mt-1 w-fit text-[9px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider', stateBadge(teamMissionState(t, c.id)).cls]">
+                                                {{ stateBadge(teamMissionState(t, c.id)).text }}
+                                            </span>
+                                        </div>
+
+                                        <div class="flex-1" />
+
+                                        <!-- IDLE: open -->
+                                        <button
+                                            v-if="teamMissionState(t, c.id) === 'idle'"
+                                            class="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-indigo-100"
+                                            @click="handleOpen(c.id, t.id, t.name)"
+                                        >
+                                            🚀 פתח לצוות
+                                        </button>
+
+                                        <!-- ACTIVE: assign roles + close -->
+                                        <template v-else-if="teamMissionState(t, c.id) === 'active'">
+                                            <button
+                                                class="px-4 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-purple-100"
+                                                @click="openRolePanel(t.id, c.id)"
+                                            >
+                                                👥 שבץ תפקידים
+                                            </button>
+                                            <button
+                                                class="px-4 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-rose-100"
+                                                @click="handleClose(t.id, t.name)"
+                                            >
+                                                🏁 סגור משימה
+                                            </button>
+                                        </template>
+
+                                        <!-- COMPLETED: reopen -->
+                                        <button
+                                            v-else
+                                            class="px-4 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-amber-100"
+                                            @click="handleReopen(t.id, t.name)"
+                                        >
+                                            🔄 פתח מחדש
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Inline role assignment panel -->
+                            <div
+                                v-if="rolePanel && rolePanel.challengeId === c.id"
+                                class="border-t border-gray-100 bg-gray-50/50 p-6"
+                            >
+                                <RoleAssignmentPanel
+                                    :team-id="rolePanel.teamId"
+                                    :challenge-id="rolePanel.challengeId"
+                                    @close="closeRolePanel"
+                                    @saved="showToast('שיבוץ התפקידים נשמר')"
+                                />
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            <!-- 2. Analytics Tab -->
+            <!-- 2. Board Tab -->
+            <div v-else-if="activeTab === 'board'" class="flex-1 flex flex-col p-6">
+                <div class="max-w-6xl mx-auto w-full">
+                    <MockMondayBoard />
+                </div>
+            </div>
+
+            <!-- 3. Analytics Tab -->
             <div v-else-if="activeTab === 'analytics'" class="flex-1 p-6">
                 <div class="max-w-6xl mx-auto">
                     <div class="mb-6">
@@ -103,38 +305,14 @@ onMounted(() => fetchAlerts());
                 </div>
             </div>
 
-                <!-- Alerts banner -->
-                <div v-if="highAlerts.length" class="mb-5 bg-red-50 border border-red-200 rounded-2xl p-4 flex items-start gap-3">
-                    <span class="text-xl shrink-0">🚨</span>
-                    <div class="flex-1 min-w-0">
-                        <p class="text-sm font-semibold text-red-800 mb-2">{{ highAlerts.length }} התראות פעילות</p>
-                        <ul class="flex flex-col gap-1.5">
-                            <li
-                                v-for="alert in highAlerts.slice(0, 5)"
-                                :key="alert.id"
-                                class="flex items-center gap-2 text-xs text-red-700"
-                            >
-                                <span class="shrink-0">{{ alert.alertType === 'stuck' ? '🔴' : '🟡' }}</span>
-                                <span class="flex-1">{{ alert.message }}</span>
-                                <button class="shrink-0 text-red-400 hover:text-red-600" @click="markAlertRead(alert.id)">✕</button>
-                            </li>
-                        </ul>
-                        <button
-                            v-if="highAlerts.length > 1"
-                            class="mt-2 text-xs text-red-500 hover:text-red-700 underline"
-                            @click="markAllAlertsRead"
-                        >
-                            סמן הכל כנקרא
-                        </button>
-                    </div>
-                </div>
-
-                <div v-if="!enrichedProfiles.length" class="text-center py-16 text-gray-400 text-sm">
-                    אין פרופילים עדיין. תלמידים יופיעו כאן לאחר שינתחו שיחות.
+            <!-- 4. DUDE Chats Tab -->
+            <div v-else-if="activeTab === 'chats'" class="flex-1 p-6" style="min-height: 0">
+                <div class="max-w-6xl mx-auto h-full" style="height: calc(100vh - 140px)">
+                    <TeacherChatPanel />
                 </div>
             </div>
 
-            <!-- 4. Student Profiles Tab -->
+            <!-- 5. Student Profiles Tab -->
             <div v-else-if="activeTab === 'profiles'" class="flex-1 p-6">
                 <div class="max-w-6xl mx-auto">
                     <div class="flex items-center justify-between mb-8">
@@ -149,6 +327,32 @@ onMounted(() => fetchAlerts());
                                 @click="loadProfiles"
                             >
                                 רענן נתונים
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Alerts banner -->
+                    <div v-if="highAlerts.length" class="mb-8 bg-red-50 border border-red-200 rounded-2xl p-6 flex items-start gap-4">
+                        <span class="text-2xl shrink-0">⚠️</span>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-base font-black text-red-900 mb-3">{{ highAlerts.length }} התראות הדורשות התערבות</p>
+                            <ul class="flex flex-col gap-2">
+                                <li
+                                    v-for="alert in highAlerts.slice(0, 5)"
+                                    :key="alert.id"
+                                    class="flex items-center gap-3 text-sm text-red-800 bg-white/50 p-2 rounded-lg border border-red-100"
+                                >
+                                    <span class="shrink-0 font-bold px-2 py-0.5 rounded-md bg-red-100">{{ alert.alertType === 'stuck' ? 'תקוע' : 'התראה' }}</span>
+                                    <span class="flex-1">{{ alert.message }}</span>
+                                    <button class="shrink-0 text-red-400 hover:text-red-600 transition-colors" @click="markAlertRead(alert.id)">סמן כנקרא</button>
+                                </li>
+                            </ul>
+                            <button
+                                v-if="highAlerts.length > 1"
+                                class="mt-4 text-xs text-red-600 font-bold hover:text-red-800 underline uppercase tracking-widest"
+                                @click="markAllAlertsRead"
+                            >
+                                סמן הכל כנקרא
                             </button>
                         </div>
                     </div>
@@ -169,6 +373,19 @@ onMounted(() => fetchAlerts());
                 </div>
             </div>
         </main>
+
+        <!-- Toast -->
+        <Teleport to="body">
+            <Transition name="toast">
+                <div
+                    v-if="toast"
+                    :class="['fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-2xl shadow-xl text-sm font-black pointer-events-none transition-all', toast.type === 'success' ? 'bg-emerald-600 text-white' : 'bg-rose-600 text-white']"
+                    dir="rtl"
+                >
+                    {{ toast.msg }}
+                </div>
+            </Transition>
+        </Teleport>
     </div>
 </template>
 
