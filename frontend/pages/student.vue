@@ -201,6 +201,7 @@ const {
     computed(() => user.value?.currentTeamId ?? ''),
     computed(() => user.value?.id ?? ''),
     computed(() => user.value?.name ?? 'תלמיד'),
+    computed(() => team.value?.name ?? ''),
 );
 
 // ── Student profile ───────────────────────────────────────────────────────────
