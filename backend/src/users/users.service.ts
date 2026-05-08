@@ -5,6 +5,7 @@ export interface UserRow {
     id: string;
     name: string;
     email: string;
+    account_type: string;
     current_team_id: string | null;
     current_role: string | null;
     total_active_time: number;
@@ -19,7 +20,7 @@ export class UsersService {
     async findAll(): Promise<UserRow[]> {
         const { data, error } = await this.supabase.db
             .from('users')
-            .select('id, name, email, current_team_id, current_role, total_active_time, last_login_at, created_at')
+            .select('id, name, email, account_type, current_team_id, current_role, total_active_time, last_login_at, created_at')
             .order('name');
 
         if (error) throw new Error(error.message);
@@ -29,7 +30,7 @@ export class UsersService {
     async findOne(id: string): Promise<UserRow> {
         const { data, error } = await this.supabase.db
             .from('users')
-            .select('id, name, email, current_team_id, current_role, total_active_time, last_login_at, created_at')
+            .select('id, name, email, account_type, current_team_id, current_role, total_active_time, last_login_at, created_at')
             .eq('id', id)
             .maybeSingle();
 
