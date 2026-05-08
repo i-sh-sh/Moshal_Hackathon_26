@@ -66,7 +66,7 @@ const alertConfig = computed(() => {
                 </div>
             </div>
             <div class="bg-gray-50 rounded-xl p-3">
-                <p class="text-xs text-gray-500 mb-1">כישורים רכים</p>
+                <p class="text-xs text-gray-500 mb-1">רכישת כישורים</p>
                 <p :class="['text-2xl font-bold', scoreColor(profile.softSkillScore)]">{{ profile.softSkillScore.toFixed(0) }}</p>
                 <div class="h-1.5 bg-gray-200 rounded-full mt-2 overflow-hidden">
                     <div :class="['h-full rounded-full transition-all', scoreBar(profile.softSkillScore)]" :style="`width: ${profile.softSkillScore}%`" />

@@ -83,7 +83,7 @@ async function selectUser(u: ApiUser) {
                     @click="view = 'students'"
                 >
                     <span class="text-5xl">🎒</span>
-                    <span class="text-xl font-bold text-gray-800">תלמיד</span>
+                    <span class="text-xl font-bold text-gray-800">תלמיד/ה</span>
                 </button>
 
                 <button
