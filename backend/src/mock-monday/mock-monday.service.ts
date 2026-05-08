@@ -114,9 +114,25 @@ export class MockMondayService {
             .update({ is_active: true })
             .eq('id', challengeId);
 
+        // Resolve the first sprint of this challenge so student dashboards show the correct title
+        const { data: sprintData } = await this.supabase.db
+            .from('sprints')
+            .select('id')
+            .eq('challenge_id', challengeId)
+            .order('order_index' as any)
+            .limit(1)
+            .maybeSingle();
+
+        const firstSprintId = (sprintData as any)?.id ?? null;
+
         await this.supabase.db
             .from('teams')
-            .update({ current_challenge_id: challengeId, sprint_status: 'active', is_completed: false })
+            .update({
+                current_challenge_id: challengeId,
+                current_sprint_id: firstSprintId,
+                sprint_status: 'active',
+                is_completed: false,
+            })
             .neq('id', '00000000-0000-0000-0000-000000000000');
 
         return { message: `Challenge ${challengeId} kicked off for all teams (mock Monday event)` };
