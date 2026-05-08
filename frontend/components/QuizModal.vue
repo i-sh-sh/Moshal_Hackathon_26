@@ -106,8 +106,10 @@ async function handleSubmit() {
         const r = await quizzes.submit(attemptId.value, payload);
         stopBgMusic();
         playVictorySound();
-        result.value = r;
         emit('submitted', r);
+        if (props.phase === 'post') {
+            result.value = r;
+        }
     } catch (e: any) {
         error.value = e?.data?.message ?? e?.message ?? 'Submit failed';
     } finally {

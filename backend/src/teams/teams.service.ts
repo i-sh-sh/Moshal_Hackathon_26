@@ -229,4 +229,54 @@ export class TeamsService {
         const approved = tasks?.filter((t) => t.status === 'approved').length ?? 0;
         return { total, approved };
     }
+
+    async listGroupNotes(teamId: string): Promise<unknown[]> {
+        const { data, error } = await this.supabase.db
+            .from('teacher_group_notes')
+            .select('id, team_id, teacher_id, note, created_at')
+            .eq('team_id', teamId)
+            .order('created_at', { ascending: false });
+
+        if (error) this.logger.error(`listGroupNotes error: ${error.message}`);
+        return data ?? [];
+    }
+
+    async createGroupNote(teamId: string, note: string, teacherId?: string): Promise<unknown> {
+        const { data, error } = await this.supabase.db
+            .from('teacher_group_notes')
+            .insert({ team_id: teamId, note, teacher_id: teacherId ?? null })
+            .select('id, team_id, teacher_id, note, created_at')
+            .single();
+
+        if (error) {
+            this.logger.error(`createGroupNote error: ${error.message}`);
+            throw new Error(error.message);
+        }
+        return data;
+    }
+
+    async listStudentNotes(studentId: string): Promise<unknown[]> {
+        const { data, error } = await this.supabase.db
+            .from('teacher_student_notes')
+            .select('id, student_id, teacher_id, note, created_at')
+            .eq('student_id', studentId)
+            .order('created_at', { ascending: false });
+
+        if (error) this.logger.error(`listStudentNotes error: ${error.message}`);
+        return data ?? [];
+    }
+
+    async createStudentNote(studentId: string, note: string, teacherId?: string): Promise<unknown> {
+        const { data, error } = await this.supabase.db
+            .from('teacher_student_notes')
+            .insert({ student_id: studentId, note, teacher_id: teacherId ?? null })
+            .select('id, student_id, teacher_id, note, created_at')
+            .single();
+
+        if (error) {
+            this.logger.error(`createStudentNote error: ${error.message}`);
+            throw new Error(error.message);
+        }
+        return data;
+    }
 }

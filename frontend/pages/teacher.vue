@@ -2,7 +2,7 @@
 import { useTeacher } from '~/composables/useTeacher';
 import { useUser } from '~/composables/useUser';
 import type { Challenge, StudentProfile } from '~/types/types';
-import { LESSONS_PER_MISSION } from '~/services/demoData';
+import { LESSONS_PER_MISSION, DEMO_STUDENTS_BY_TEAM } from '~/services/demoData';
 import { useStudentProfile } from '~/composables/useStudentProfile';
 
 useHead({ title: 'Teacher Dashboard — TeamSprintUp' });
@@ -158,18 +158,6 @@ watch(activeTab, (tab) => {
                 <button
                     :class="[
                         'px-4 py-1.5 rounded-lg text-xs font-medium transition-colors',
-                        activeTab === 'analytics'
-                            ? 'bg-gray-700 text-white'
-                            : 'text-gray-400 hover:text-gray-200',
-                    ]"
-                    @click="activeTab = 'analytics'"
-                >
-                    📈 Analytics
-                </button>
-
-                <button
-                    :class="[
-                        'px-4 py-1.5 rounded-lg text-xs font-medium transition-colors',
                         activeTab === 'chats'
                             ? 'bg-gray-700 text-white'
                             : 'text-gray-400 hover:text-gray-200',
@@ -183,7 +171,7 @@ watch(activeTab, (tab) => {
                     :class="['px-4 py-1.5 rounded-lg text-xs font-medium transition-colors relative', activeTab === 'profiles' ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-gray-200']"
                     @click="activeTab = 'profiles'"
                 >
-                    🧠 פרופילים
+                    🧠 אנליזה
                     <span v-if="highAlerts.length" class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center font-bold">
                         {{ highAlerts.length > 9 ? '9+' : highAlerts.length }}
                     </span>
@@ -311,18 +299,7 @@ watch(activeTab, (tab) => {
                 </div>
             </div>
 
-            <!-- 3. Analytics Tab -->
-            <div v-else-if="activeTab === 'analytics'" class="flex-1 p-6">
-                <div class="max-w-6xl mx-auto">
-                    <div class="mb-6">
-                        <h1 class="text-2xl font-black text-gray-900 tracking-tight">Student Analytics</h1>
-                        <p class="text-sm text-gray-500 mt-1">מדדי ביצוע, רמת סיכון ותובנות למידה בזמן אמת.</p>
-                    </div>
-                    <AnalyticsDashboard />
-                </div>
-            </div>
-
-            <!-- 4. DUDE Chats Tab -->
+            <!-- 3. DUDE Chats Tab -->
             <div v-else-if="activeTab === 'chats'" class="flex-1 p-6" style="min-height: 0">
                 <div class="max-w-6xl mx-auto h-full" style="height: calc(100vh - 140px)">
                     <TeacherChatPanel />
@@ -374,18 +351,49 @@ watch(activeTab, (tab) => {
                         </div>
                     </div>
 
+                    <h2 class="text-base font-black text-gray-900 mb-4">תלמידים</h2>
+
                     <div v-if="!enrichedProfiles.length" class="flex flex-col items-center justify-center py-32 bg-white rounded-3xl border-2 border-dashed border-gray-200">
                         <div class="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4 text-3xl">📭</div>
                         <p class="text-gray-400 font-medium">טרם נותחו פרופילי למידה עבור תלמידים אלו.</p>
                     </div>
 
                     <div v-else class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                        <StudentProfileCard
+                        <NuxtLink
                             v-for="p in enrichedProfiles"
                             :key="p.id"
-                            :profile="p"
-                            :user-name="p.name"
-                        />
+                            :to="`/teacher-student/${p.userId}`"
+                            class="block hover:scale-[1.01] transition-transform"
+                        >
+                            <StudentProfileCard
+                                :profile="p"
+                                :user-name="p.name"
+                            />
+                        </NuxtLink>
+                    </div>
+
+                    <h2 class="text-base font-black text-gray-900 mt-10 mb-4">קבוצות</h2>
+
+                    <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                        <NuxtLink
+                            v-for="t in teacherData.teams.value"
+                            :key="t.id"
+                            :to="`/teacher-group/${t.id}`"
+                            class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col gap-3 hover:shadow-md hover:border-[#3CC2EE]/40 transition-all cursor-pointer"
+                        >
+                            <div class="flex items-start justify-between gap-2">
+                                <span class="font-black text-gray-900 text-sm leading-tight">{{ t.name }}</span>
+                                <span :class="['text-[10px] font-bold px-2.5 py-0.5 rounded-full shrink-0', stateBadge(t.sprintStatus as TeamMissionState).cls]">
+                                    {{ stateBadge(t.sprintStatus as TeamMissionState).text }}
+                                </span>
+                            </div>
+                            <p class="text-sm text-gray-500">{{ DEMO_STUDENTS_BY_TEAM[t.id]?.length ?? 0 }} תלמידים</p>
+                            <p v-if="t.currentChallengeId" class="text-sm text-gray-700">
+                                <span class="font-semibold text-gray-500">אתגר פעיל:</span>
+                                {{ teacherData.challenges.value.find(c => c.id === t.currentChallengeId)?.title ?? '' }}
+                            </p>
+                            <p v-else class="text-sm text-gray-400">אין אתגר פעיל</p>
+                        </NuxtLink>
                     </div>
                 </div>
             </div>

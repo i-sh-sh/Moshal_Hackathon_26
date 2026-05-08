@@ -489,7 +489,7 @@ onUnmounted(() => { if (tickTimer) clearInterval(tickTimer); });
 
                     <div v-else class="flex flex-col gap-3">
                         <div
-                            v-for="p in topIndividuals"
+                            v-for="p in topIndividuals.slice(0, 3)"
                             :key="p.id"
                             class="flex items-center gap-3 bg-gray-50 rounded-xl px-4 py-3"
                             :class="{ 'bg-cyan-50 border border-cyan-200': p.id === user?.id }"
