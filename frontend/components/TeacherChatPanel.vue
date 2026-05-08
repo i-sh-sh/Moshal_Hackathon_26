@@ -18,7 +18,14 @@ const groupResult    = ref<{ analyzed: number; summary: string } | null>(null);
 async function fetchChannels() {
     loadingCh.value = true;
     try {
-        channels.value = await $fetch<ChatChannel[]>(`${base}/chat/channels`);
+        const all = await $fetch<ChatChannel[]>(`${base}/chat/channels`);
+        // Deduplicate by name — until all teams have unique channel names
+        const seen = new Set<string>();
+        channels.value = all.filter((ch) => {
+            if (seen.has(ch.name)) return false;
+            seen.add(ch.name);
+            return true;
+        });
         if (channels.value.length && !selectedCh.value) await selectChannel(channels.value[0]);
     } finally { loadingCh.value = false; }
 }
