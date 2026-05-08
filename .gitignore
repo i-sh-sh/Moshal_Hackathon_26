@@ -11,4 +11,3 @@ backend/coverage/
 backend/tmp/
 .vscode/
 .idea/
-codebase.json
