@@ -20,12 +20,8 @@ const statusColor: Record<string, string> = {
 
 <template>
     <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 flex flex-col gap-3">
-        <!-- Sprint title + status -->
+        <!-- Sprint status + score -->
         <div class="flex items-center justify-between gap-2 flex-wrap">
-            <div>
-                <p class="text-xs text-gray-400 uppercase tracking-wide font-medium mb-0.5">Sprint</p>
-                <h2 class="text-base font-bold text-gray-800 leading-snug">{{ sprintTitle }}</h2>
-            </div>
             <div class="flex items-center gap-3">
                 <span class="text-xs font-medium px-2.5 py-1 rounded-full bg-amber-100 text-amber-800">
                     ⭐ {{ score }} pts
