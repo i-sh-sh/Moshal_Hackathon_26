@@ -68,13 +68,22 @@ async function selectStudent(s: StudentRow) {
     await fetchPrivateMsgs();
 }
 
+const migrationPending = ref(false);
+
 async function fetchPrivateMsgs() {
     if (!selectedStudent.value) return;
     loadingPrivate.value = true;
+    migrationPending.value = false;
     try {
-        privateMsgs.value = await $fetch<PrivateMsg[]>(`${base}/dude/private/${selectedStudent.value.id}/messages`);
-    } catch { privateMsgs.value = []; }
-    finally { loadingPrivate.value = false; }
+        const result = await $fetch<PrivateMsg[]>(`${base}/dude/private/${selectedStudent.value.id}/messages`);
+        privateMsgs.value = result;
+        migrationPending.value = false;
+    } catch (e: any) {
+        privateMsgs.value = [];
+        if (String(e?.message ?? e).includes('42P01') || String(e?.data ?? '').includes('42P01')) {
+            migrationPending.value = true;
+        }
+    } finally { loadingPrivate.value = false; }
 }
 
 async function runPrivateAnalysis() {
@@ -253,6 +262,12 @@ onUnmounted(() => { if (pollTimer) clearInterval(pollTimer); });
                     <p>{{ privateResult.summary }}</p>
                     <p class="text-violet-500 mt-1">פרופיל תלמיד עודכן ← "DUDE Insights"</p>
                 </div>
+            </div>
+
+            <!-- Migration pending warning -->
+            <div v-if="migrationPending" class="bg-amber-900/50 border border-amber-600 rounded-xl px-4 py-3 text-xs text-amber-200 flex items-start gap-2">
+                <span class="shrink-0">⚠️</span>
+                <span>טבלת השיחות הפרטיות עוד לא נוצרה — הרץ את migration 007 בסואפאבייס.</span>
             </div>
 
             <!-- Private messages -->
