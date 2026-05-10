@@ -1,118 +1,129 @@
 # TeamSprintUp
 
-> פלטפורמת סימולציה של סביבת עבודה הייטק לתלמידי תיכון — לומדים לעבוד בצוות, לנהל תהליכים, ולחשוב כמו אנשי מקצוע.
+**השכבה האישית שחסרה ל-TechSchool.**
 
 ---
 
-## למה בכלל צריך את זה?
+## הסיפור
 
-מחקרים בחינוך טכנולוגי מראים שוב ושוב פער אחד מרכזי: **תלמידים יודעים תיאוריה, אבל לא יודעים לעבוד**.
+[TechSchool](https://www.techschool.co.il) — תחת Monday.com — עושה עבודה יוצאת דופן: היא מביאה תוכניות שנתיות מובנות, אתגרים אמיתיים, ותכנים מקצועיים לבתי ספר תיכוניים ברחבי ישראל.
 
-> *"Students who engage in project-based learning show significantly greater gains in problem-solving and collaboration skills compared to those in traditional instruction."*
-> — Krajcik & Shin, *Science Education* (2014) [¹](#מקורות)
+אבל כשמסתכלים על **התלמיד הבודד לאורך השנה** — מתגלה פער.
 
-> *"Simulated workplace environments improve students' readiness for real-world employment by bridging the gap between academic knowledge and professional practice."*
-> — Billett, *Journal of Vocational Education & Training* (2011) [²](#מקורות)
+התוכניות נבנות ברמת הכיתה. האתגרים מוגדרים ברמת הקבוצה. אין שכבה שרואה **כל תלמיד** — את הקצב שלו, הקשיים שלו, הצמיחה שלו — בזמן אמת, לאורך כל השנה.
 
-> *"Scaffolded hints — hints that progressively reveal more information — are significantly more effective than direct answers for promoting deep learning and transfer."*
-> — VanLehn, *Educational Psychologist* (2011) [³](#מקורות)
+**TeamSprintUp היא אותה שכבה חסרה.**
 
-> *"Peer review processes in academic settings develop critical thinking and meta-cognitive skills that persist beyond the immediate learning context."*
-> — Topping, *Review of Educational Research* (2009) [⁴](#מקורות)
+היא לא מחליפה את TechSchool — היא נבנית מעליה. מעל התכנים, מעל האתגרים, מעל המסגרת השנתית — היא מוסיפה את הממד האישי שהופך לימוד לצמיחה.
 
-> *"Leaderboards and visible progress indicators increase intrinsic motivation and sustained engagement in educational environments when tied to meaningful goals."*
-> — Hamari, Koivisto & Sarsa, *Hawaii International Conference on System Sciences* (2014) [⁵](#מקורות)
+---
+
+## מה המחקר אומר
+
+הפער שגילינו אינו תחושה — הוא מתועד היטב בספרות החינוכית.
+
+> *"What students learn in school is often inert — decontextualized from the authentic activities of practitioners. The gap between school knowledge and workplace practice is not a failure of effort, but a structural feature of how schooling is organized."*
+> — Brown, Collins & Duguid, *Educational Researcher* (1989) [¹](#מקורות)
+
+> *"Feedback is among the most powerful influences on learning and achievement — yet its effect depends critically on whether it is ongoing, specific, and tied to the individual learner's current position."*
+> — Hattie & Timperley, *Review of Educational Research* (2007) [²](#מקורות)
+
+> *"Inside the black box, formative assessment — continuous, personal, and responsive — raises standards of achievement in ways that summative, end-of-year testing cannot."*
+> — Black & Wiliam, *Assessment in Education* (1998) [³](#מקורות)
+
+> *"What a child can do with assistance today, she will be able to do by herself tomorrow. Learning occurs in the space between what is known and what is just within reach — the zone of proximal development."*
+> — Vygotsky, *Mind in Society* (1978) [⁴](#מקורות)
+
+> *"Learning analytics enables educators to understand learners at a level of granularity previously impossible — tracking not just outcomes, but the trajectory that produced them."*
+> — Siemens, *American Behavioral Scientist* (2013) [⁵](#מקורות)
 
 ---
 
 ## מה TeamSprintUp עושה
 
-TeamSprintUp שם את התלמיד **בתוך** סביבת עבודה אמיתית — לא מדמה אותה, בונה אותה.
+### לתלמיד — חוויית עולם עבודה אמיתית
 
-כל צוות של 4 תלמידים מתפקד כחברת הייטק קטנה:
+כל צוות של 4 תלמידים מתפקד כחברת הייטק קטנה, עם תפקידים אמיתיים:
 
-| תפקיד | מה הוא עושה בפועל |
-|--------|-------------------|
+| תפקיד | מה הוא עושה |
+|--------|-------------|
 | **Editor** (PM) | מנהל את תהליך העבודה, מאשר לאחר בדיקת QA |
-| **QA** | בודק את העבודה לפי checklist לפני שמגיעה למנהל |
-| **Designer** (Dev) | מגיש את העבודה עם קובץ / קישור לתוצר |
-| **Printer** (Hardware) | מגיש את העבודה הפיזית / מימוש |
+| **QA** | בודק את התוצר לפי checklist לפני שמגיע לעורך |
+| **Designer** (Dev) | מפתח ומגיש את התוצר |
+| **Printer** (Hardware) | מממש ומגיש את התוצר הפיזי |
 
 עבודה לא מתקבלת עד שעברה את כל שלבי האישור — **בדיוק כמו בחברה אמיתית**.
 
----
-
-## חווית התלמיד
-
-### 1. המשימה
-כל ספרינט כולל משימה לפי תפקיד. התלמיד מגיש קישור או קובץ לתוצר שיצר.
-
-### 2. Pipeline האישורים
 ```
-תלמיד מגיש → QA בודק → Editor מאשר → מורה מאשר ✅
+תלמיד מגיש → QA בודק → Editor מאשר → מורה מאשר → ✅
+     ↑               ↓               ↓
+     └───── דחייה עם הערות ←────────┘
 ```
-כל שלב יכול לדחות ולהחזיר — עם הערות. התלמיד לומד מהמשוב וממגיש.
 
-### 3. רמזי AI (כשנתקעים)
-במקום לשאול את המורה ישירות — התלמיד מבקש רמז. המערכת מחזירה רמז **מדורג**:
-- **רמז 1** — כיוון כללי ("חשוב על הכלי שמיועד ל...")
-- **רמז 2** — כיוון ספציפי ("נסה את הפונקציה...")
-- **רמז 3+** — צעד מעשי ישיר
+כל דחייה היא הזדמנות לימוד, לא כישלון. התלמיד מקבל משוב, משפר, ומגיש מחדש.
 
-שלושה רמזים ראשונים חינמיים. מהרביעי — **מנוכות נקודות מהצוות**. זה יוצר לחץ בריא לנסות לפני שמבקשים עזרה.
+### כשנתקעים — רמזי AI מדורגים
 
-### 4. צ'אט קבוצתי עם DUDE
-צ'אט פנימי לצוות. הבוט **DUDE** (Dynamic Understanding & Development Engine) נמצא בשיחה — אבל לא מתערב כל הזמן. כל כמה הודעות הוא מנתח את השיחה ומעדכן פרופיל לימודי אישי לכל תלמיד.
+במקום לקבל את התשובה — התלמיד מקבל רמז שמוביל אליה. המערכת מיישמת את עיקרון ה-ZPD של ויגוצקי [⁴](#מקורות) ואת עקרון ה-Scaffolding של Wood, Bruner & Ross [⁶](#מקורות):
 
-### 5. לוח התוצאות
-כל הצוותים מדורגים בזמן אמת. ניכויי נקודות על רמזים מיותרים, צבירת נקודות על משימות שאושרו.
+- **רמז 1** — כיוון כללי: מה לחפש
+- **רמז 2** — כיוון ספציפי: איזה כלי
+- **רמז 3+** — צעד מעשי: מה לעשות עכשיו
 
----
+שלושה ראשונים חינמיים. מהרביעי — מנוכות נקודות מהצוות. המחיר יוצר לחץ בריא לנסות לפני שמבקשים עזרה.
 
-## מה המורה מקבל
+### לוח תוצאות
 
-### דשבורד בסגנון Monday.com
-כל המשימות מוצגות בלוח עמודות: *In Progress → QA → PM → ממתין לאישור → אושר*. אישור וסינון בלחיצה אחת.
-
-### ניתוח סיכון אוטומטי
-המערכת מחשבת ציון סיכון לכל תלמיד לפי:
-- זמן פעיל ביחס להתקדמות
-- כמות רמזים שנוצלו
-- קצב אישור משימות
-
-### פרופיל לימודי לכל תלמיד
-מתוך ניתוח הצ'אטים — AI מזהה לכל תלמיד:
-- **ציון ז'רגון מקצועי** (0–100) — האם הוא משתמש בשפה הנכונה?
-- **ציון soft skills** (0–100) — תקשורת, שיתוף פעולה
-- **מונחים שזוהו** — אוצר מילים מקצועי שנטמע
-- **אזורי קושי** — נושאים שחוזרים כבעיה
-
-כשמזוהה בעיה — **התראה אוטומטית** למורה (פער ידע / מעורבות נמוכה / תקיעות).
+כל הצוותים מדורגים בזמן אמת. ניכויי נקודות על רמזים מיותרים, צבירת נקודות על משימות שאושרו. תחרות בריאה שמניעה.
 
 ---
 
-## מה התלמיד לומד
+## מה המורה רואה
 
-- לעבוד בתוך תהליך מסודר עם שלבי אישור
-- לקבל ולתת משוב ביקורתי (QA → Dev)
-- לנהל זמן ועדיפויות תחת לחץ ניקוד
-- לשאול שאלות טובות לפני שמבקשים עזרה
-- לעבוד בצוות עם תפקידים מוגדרים ואחריות אישית
+### שקיפות מלאה בזמן אמת
+
+**דשבורד בסגנון Monday.com** — כל המשימות של כל הצוותים, מסודרות לפי שלבי הפייפליין. אישור בלחיצה אחת.
+
+### פרופיל אישי לכל תלמיד
+
+מעל הצ'אט הקבוצתי רץ מנוע AI — **DUDE** (Dynamic Understanding & Development Engine) — שמנתח את השיחות ובונה לכל תלמיד פרופיל לימודי:
+
+| מדד | מה הוא מודד |
+|------|-------------|
+| **ציון ז'רגון מקצועי** (0–100) | האם התלמיד מדבר בשפת המקצוע? |
+| **ציון Soft Skills** (0–100) | תקשורת, שיתוף פעולה, יוזמה |
+| **מונחים שזוהו** | אוצר מילים מקצועי שנטמע בפועל |
+| **אזורי קושי** | נושאים שחוזרים כבעיה |
+
+הפרופיל נבנה **לאורך כל השנה** — לא סנאפשוט נקודתי. המורה רואה לא רק איפה התלמיד נמצא, אלא **לאן הוא הולך**.
+
+### התראות אוטומטיות
+
+כשהמערכת מזהה תלמיד בסיכון — תקיעה, מעורבות נמוכה, פער ידע — מופיעה **התראה למורה** לפני שהבעיה גדלה.
+
+---
+
+## מה התלמיד לוקח איתו
+
+- ניסיון בעבודה עם pipeline אישורים מקצועי
+- יכולת לתת ולקבל משוב ביקורתי
+- הרגל לנסות לפני שמבקשים עזרה
+- שפה מקצועית שנבנתה מתוך שימוש אמיתי
+- הבנה של תפקידים ואחריות בתוך צוות
 
 ---
 
 ## מקורות
 
-1. Krajcik, J. S., & Shin, N. (2014). Project-based learning. *Cambridge Handbook of the Learning Sciences*, 275–297.
-2. Billett, S. (2011). Workplace simulation and learning. *Journal of Vocational Education & Training*, 63(3), 341–352.
-3. VanLehn, K. (2011). The relative effectiveness of human tutoring, intelligent tutoring systems, and other tutoring systems. *Educational Psychologist*, 46(4), 197–221.
-4. Topping, K. J. (2009). Peer assessment. *Theory Into Practice*, 48(1), 20–27.
-5. Hamari, J., Koivisto, J., & Sarsa, H. (2014). Does gamification work? A literature review of empirical studies on gamification. *HICSS*, 3025–3034.
+1. Brown, J. S., Collins, A., & Duguid, P. (1989). Situated cognition and the culture of learning. *Educational Researcher*, 18(1), 32–42.
+2. Hattie, J., & Timperley, H. (2007). The power of feedback. *Review of Educational Research*, 77(1), 81–112.
+3. Black, P., & Wiliam, D. (1998). Assessment and classroom learning. *Assessment in Education: Principles, Policy & Practice*, 5(1), 7–74.
+4. Vygotsky, L. S. (1978). *Mind in society: The development of higher psychological processes* (M. Cole et al., Eds.). Harvard University Press.
+5. Siemens, G. (2013). Learning analytics: The emergence of a discipline. *American Behavioral Scientist*, 57(10), 1380–1400.
+6. Wood, D., Bruner, J. S., & Ross, G. (1976). The role of tutoring in problem solving. *Journal of Child Psychology and Psychiatry*, 17(2), 89–100.
 
 ---
 
 ## טכנולוגיה
 
-NestJS · Nuxt 3 · PostgreSQL (Supabase) · Azure OpenAI · Tailwind CSS
-
-קוד מלא, הוראות התקנה ומבנה טכני — ראה `backend/.env.example` ו-`supabase/schema.sql`.
+NestJS · Nuxt 3 · PostgreSQL (Supabase) · Azure OpenAI gpt-4o · Tailwind CSS
