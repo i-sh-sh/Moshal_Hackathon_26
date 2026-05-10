@@ -13,7 +13,7 @@ const pct = computed(() =>
 
 const statusColor: Record<string, string> = {
     idle: 'bg-gray-400',
-    active: 'bg-indigo-500',
+    active: 'bg-[#3CC2EE]',
     completed: 'bg-emerald-500',
 };
 </script>
@@ -43,7 +43,7 @@ const statusColor: Record<string, string> = {
             <div class="h-2.5 bg-gray-100 rounded-full overflow-hidden">
                 <div
                     class="h-full rounded-full transition-all duration-700"
-                    :class="pct === 100 ? 'bg-emerald-500' : 'bg-indigo-500'"
+                    :class="pct === 100 ? 'bg-emerald-500' : 'bg-[#3CC2EE]'"
                     :style="{ width: `${pct}%` }"
                 />
             </div>

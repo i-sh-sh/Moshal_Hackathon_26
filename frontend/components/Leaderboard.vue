@@ -30,7 +30,7 @@ const maxScore = computed(() =>
                 :class="[
                     'rounded-xl px-4 py-3 flex flex-col gap-1.5 transition-colors',
                     row.id === highlightTeamId
-                        ? 'bg-indigo-50 border border-indigo-200'
+                        ? 'bg-cyan-50 border border-[#3CC2EE]/30'
                         : 'bg-gray-50 border border-transparent',
                 ]"
             >
@@ -40,7 +40,7 @@ const maxScore = computed(() =>
                     </span>
                     <span class="font-semibold text-gray-800 text-sm flex-1 truncate">
                         {{ row.name }}
-                        <span v-if="row.id === highlightTeamId" class="text-indigo-500 text-xs ml-1">(you)</span>
+                        <span v-if="row.id === highlightTeamId" class="text-[#3CC2EE] text-xs ml-1">(אתם)</span>
                     </span>
                     <span class="text-sm font-bold text-gray-700 shrink-0">
                         {{ row.accumulatedScore }} pts
@@ -49,7 +49,7 @@ const maxScore = computed(() =>
                 <!-- Score bar -->
                 <div class="h-1.5 bg-gray-200 rounded-full overflow-hidden ml-8">
                     <div
-                        class="h-full rounded-full bg-indigo-400 transition-all duration-700"
+                        class="h-full rounded-full bg-[#3CC2EE] transition-all duration-700"
                         :style="{ width: `${(row.accumulatedScore / maxScore) * 100}%` }"
                     />
                 </div>

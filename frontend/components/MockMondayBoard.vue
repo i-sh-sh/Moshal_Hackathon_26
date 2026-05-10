@@ -92,7 +92,7 @@ function formatTime(iso: string) {
 
         <!-- ── Top bar ──────────────────────────────────────────────────── -->
         <header class="flex items-center gap-4 px-6 py-4 bg-white border-b border-gray-200">
-            <span class="text-sm font-extrabold text-gray-900">לוח משימות</span>
+            <span class="text-sm font-bold text-gray-900">לוח משימות</span>
 
             <!-- Challenge selector -->
             <select
@@ -129,7 +129,7 @@ function formatTime(iso: string) {
 
         <!-- ── Board title ────────────────────────────────────────────────── -->
         <div class="px-6 py-4 flex items-center gap-3">
-            <h1 class="text-xl font-extrabold text-gray-900">
+            <h1 class="text-xl font-bold text-gray-900">
                 {{ board?.challengeTitle ?? 'טוען...' }}
             </h1>
             <span class="text-xs text-gray-400">לוח מורה</span>
@@ -233,7 +233,7 @@ function formatTime(iso: string) {
         <Transition name="toast">
             <div
                 v-if="toast"
-                class="fixed bottom-6 left-1/2 -translate-x-1/2 px-5 py-3 rounded-2xl text-sm font-bold shadow-xl z-50"
+                class="fixed bottom-6 left-1/2 -translate-x-1/2 px-5 py-3 rounded-2xl text-sm font-bold shadow-hover z-50"
                 :class="toast.type === 'success' ? 'bg-emerald-500 text-white' : 'bg-red-500 text-white'"
             >
                 {{ toast.msg }}

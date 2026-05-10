@@ -363,7 +363,7 @@ onUnmounted(() => { if (tickTimer) clearInterval(tickTimer); });
                                 ? 'bg-gradient-to-r from-[#3CC2EE] to-cyan-500 text-white'
                                 : 'bg-gray-200 text-gray-500'"
                         >
-                            <span class="text-sm font-extrabold tracking-wide">
+                            <span class="text-sm font-bold tracking-wide">
                                 אתגר מספר {{ index + 1 }}
                             </span>
                             <span v-if="index > 0" class="text-xs font-semibold flex items-center gap-1 opacity-80">
@@ -531,7 +531,7 @@ onUnmounted(() => { if (tickTimer) clearInterval(tickTimer); });
                     class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
                     @click.self="closeModal"
                 >
-                    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 flex flex-col gap-4">
+                    <div class="bg-white rounded-2xl shadow-hover w-full max-w-md p-6 flex flex-col gap-4">
 
                         <!-- Image preview modal -->
                         <template v-if="activeModal === 'image' && activeTask">
