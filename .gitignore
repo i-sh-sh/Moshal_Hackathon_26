@@ -11,3 +11,10 @@ backend/coverage/
 backend/tmp/
 .vscode/
 .idea/
+
+# Generated snapshots
+codebase.json
+project-structure.json
+
+# Claude Code AI instructions (not for public repos)
+CLAUDE.md
