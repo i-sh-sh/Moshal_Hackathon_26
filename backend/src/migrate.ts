@@ -21,9 +21,7 @@ import * as dotenv from 'dotenv';
 
 dotenv.config();
 
-const MIGRATIONS_DIR = path.resolve(__dirname, '..', 'migrations');
-// When run from src/ the migrations dir is at backend/migrations/ — i.e.
-// one directory up from __dirname.
+const MIGRATIONS_DIR = path.resolve(__dirname, '..', '..', '..', 'supabase', 'migrations');
 
 const log = (msg: string): void => console.log(`[migrate] ${msg}`);
 const err = (msg: string): void => console.error(`[migrate] ✗ ${msg}`);
