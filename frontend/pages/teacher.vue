@@ -131,44 +131,39 @@ watch(activeTab, (tab) => {
 </script>
 
 <template>
-    <div class="min-h-screen bg-gray-900 flex flex-col" dir="rtl">
+    <div class="min-h-screen bg-gray-50 flex flex-col" dir="rtl">
         <!-- Header -->
-        <header class="border-b border-gray-700 px-6 h-14 flex items-center gap-4">
+        <header class="bg-white border-b border-gray-200 px-6 h-14 flex items-center gap-4">
             <span class="text-xl">🚀</span>
-            <span class="font-bold text-white text-sm tracking-tight">TeamSprintUp</span>
-            <span class="text-xs text-gray-400 font-medium px-2 py-0.5 rounded-full bg-gray-800 uppercase tracking-wide">Teacher</span>
+            <span class="font-bold text-gray-900 text-sm tracking-tight">TeamSprintUp</span>
+            <span class="text-xs text-gray-500 font-medium px-2 py-0.5 rounded-full bg-gray-100">Teacher</span>
 
             <div class="flex-1" />
 
             <!-- Tabs -->
-            <div class="flex gap-1 bg-gray-800 p-1 rounded-xl flex-wrap">
+            <div class="flex gap-1 bg-gray-100 p-1 rounded-xl flex-wrap">
                 <button
-                    :class="['px-4 py-1.5 rounded-lg text-xs font-medium transition-colors', activeTab === 'missions' ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-gray-200']"
+                    :class="['px-4 py-1.5 rounded-lg text-xs font-medium transition-all', activeTab === 'missions' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-800']"
                     @click="activeTab = 'missions'"
                 >
                     🎯 משימות
                 </button>
                 <button
-                    :class="['px-4 py-1.5 rounded-lg text-xs font-medium transition-colors', activeTab === 'board' ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-gray-200']"
+                    :class="['px-4 py-1.5 rounded-lg text-xs font-medium transition-all', activeTab === 'board' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-800']"
                     @click="activeTab = 'board'"
                 >
                     📊 Monday Board
                 </button>
 
                 <button
-                    :class="[
-                        'px-4 py-1.5 rounded-lg text-xs font-medium transition-colors',
-                        activeTab === 'chats'
-                            ? 'bg-gray-700 text-white'
-                            : 'text-gray-400 hover:text-gray-200',
-                    ]"
+                    :class="['px-4 py-1.5 rounded-lg text-xs font-medium transition-all', activeTab === 'chats' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-800']"
                     @click="activeTab = 'chats'"
                 >
                     💬 DUDE Chats
                 </button>
 
                 <button
-                    :class="['px-4 py-1.5 rounded-lg text-xs font-medium transition-colors relative', activeTab === 'profiles' ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-gray-200']"
+                    :class="['px-4 py-1.5 rounded-lg text-xs font-medium transition-all relative', activeTab === 'profiles' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-800']"
                     @click="activeTab = 'profiles'"
                 >
                     🧠 אנליזה
@@ -186,7 +181,7 @@ watch(activeTab, (tab) => {
             <div v-if="activeTab === 'missions'" class="flex-1 px-8 py-10">
                 <div class="max-w-6xl mx-auto">
                     <div class="mb-8">
-                        <h1 class="text-3xl font-black text-gray-900 tracking-tight">ניהול משימות וצוותים</h1>
+                        <h1 class="text-2xl font-bold text-gray-900 tracking-tight">ניהול משימות וצוותים</h1>
                         <p class="text-sm text-gray-500 mt-1">פתחו משימה לצוות, שבצו תפקידים, וסגרו את המשימה כשהיא הושלמה.</p>
                     </div>
 
@@ -195,13 +190,13 @@ watch(activeTab, (tab) => {
                         <div
                             v-for="c in teacherData.challenges.value"
                             :key="c.id"
-                            class="bg-white rounded-3xl border border-gray-200 shadow-sm flex flex-col overflow-hidden transition-all hover:shadow-md"
+                            class="bg-white rounded-2xl border border-gray-200 shadow-sm flex flex-col overflow-hidden transition-all hover:shadow-hover hover:border-gray-300"
                         >
                             <!-- Header strip -->
                             <div class="px-6 py-4 bg-gradient-to-l from-gray-50 to-white border-b border-gray-100 flex items-center justify-between">
                                 <div class="flex items-center gap-3">
                                     <span class="text-2xl">🏆</span>
-                                    <span class="text-[11px] uppercase font-black tracking-widest text-gray-400">Mission</span>
+                                    <span class="text-[11px] uppercase font-semibold tracking-widest text-gray-400">Mission</span>
                                 </div>
                                 <span :class="['text-[11px] font-bold px-3 py-1 rounded-full shadow-sm', stateBadge(missionOverallState(c)).cls]">
                                     {{ stateBadge(missionOverallState(c)).text }}
@@ -210,7 +205,7 @@ watch(activeTab, (tab) => {
 
                             <!-- Body -->
                             <div class="p-6 flex flex-col gap-4">
-                                <h3 class="text-xl font-black text-gray-900 leading-tight">{{ c.title }}</h3>
+                                <h3 class="text-xl font-bold text-gray-900 leading-tight">{{ c.title }}</h3>
                                 <p class="text-sm text-gray-500 leading-relaxed line-clamp-3">{{ c.description }}</p>
 
                                 <div class="flex items-center gap-4 text-xs text-gray-400 font-bold">
@@ -230,7 +225,7 @@ watch(activeTab, (tab) => {
                                         class="bg-gray-50 rounded-2xl border border-gray-100 p-4 flex flex-wrap items-center gap-3"
                                     >
                                         <div class="flex flex-col">
-                                            <span class="text-sm font-black text-gray-900">👥 {{ t.name }}</span>
+                                            <span class="text-sm font-bold text-gray-900">👥 {{ t.name }}</span>
                                             <span :class="['mt-1 w-fit text-[9px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider', stateBadge(teamMissionState(t, c.id)).cls]">
                                                 {{ stateBadge(teamMissionState(t, c.id)).text }}
                                             </span>
@@ -311,7 +306,7 @@ watch(activeTab, (tab) => {
                 <div class="max-w-6xl mx-auto">
                     <div class="flex items-center justify-between mb-8">
                         <div>
-                            <h1 class="text-2xl font-black text-gray-900 tracking-tight italic uppercase">DUDE Insights</h1>
+                            <h1 class="text-2xl font-bold text-gray-900 tracking-tight">DUDE Insights</h1>
                             <p class="text-sm text-gray-500 mt-1">ניתוח מעמיק של דפוסי עבודה וכישורים רכים.</p>
                         </div>
                         <div class="flex items-center gap-4">
@@ -329,7 +324,7 @@ watch(activeTab, (tab) => {
                     <div v-if="highAlerts.length" class="mb-8 bg-red-50 border border-red-200 rounded-2xl p-6 flex items-start gap-4">
                         <span class="text-2xl shrink-0">⚠️</span>
                         <div class="flex-1 min-w-0">
-                            <p class="text-base font-black text-red-900 mb-3">{{ highAlerts.length }} התראות הדורשות התערבות</p>
+                            <p class="text-base font-bold text-red-900 mb-3">{{ highAlerts.length }} התראות הדורשות התערבות</p>
                             <ul class="flex flex-col gap-2">
                                 <li
                                     v-for="alert in highAlerts.slice(0, 5)"
@@ -351,9 +346,9 @@ watch(activeTab, (tab) => {
                         </div>
                     </div>
 
-                    <h2 class="text-base font-black text-gray-900 mb-4">תלמידים</h2>
+                    <h2 class="text-base font-bold text-gray-900 mb-4">תלמידים</h2>
 
-                    <div v-if="!enrichedProfiles.length" class="flex flex-col items-center justify-center py-32 bg-white rounded-3xl border-2 border-dashed border-gray-200">
+                    <div v-if="!enrichedProfiles.length" class="flex flex-col items-center justify-center py-32 bg-white rounded-2xl border-2 border-dashed border-gray-200">
                         <div class="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4 text-3xl">📭</div>
                         <p class="text-gray-400 font-medium">טרם נותחו פרופילי למידה עבור תלמידים אלו.</p>
                     </div>
@@ -372,7 +367,7 @@ watch(activeTab, (tab) => {
                         </NuxtLink>
                     </div>
 
-                    <h2 class="text-base font-black text-gray-900 mt-10 mb-4">קבוצות</h2>
+                    <h2 class="text-base font-bold text-gray-900 mt-10 mb-4">קבוצות</h2>
 
                     <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                         <NuxtLink
@@ -382,7 +377,7 @@ watch(activeTab, (tab) => {
                             class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col gap-3 hover:shadow-md hover:border-[#3CC2EE]/40 transition-all cursor-pointer"
                         >
                             <div class="flex items-start justify-between gap-2">
-                                <span class="font-black text-gray-900 text-sm leading-tight">{{ t.name }}</span>
+                                <span class="font-bold text-gray-900 text-sm leading-tight">{{ t.name }}</span>
                                 <span :class="['text-[10px] font-bold px-2.5 py-0.5 rounded-full shrink-0', stateBadge(t.sprintStatus as TeamMissionState).cls]">
                                     {{ stateBadge(t.sprintStatus as TeamMissionState).text }}
                                 </span>
@@ -404,7 +399,7 @@ watch(activeTab, (tab) => {
             <Transition name="toast">
                 <div
                     v-if="toast"
-                    :class="['fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-2xl shadow-xl text-sm font-black pointer-events-none transition-all', toast.type === 'success' ? 'bg-emerald-600 text-white' : 'bg-rose-600 text-white']"
+                    :class="['fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-2xl shadow-xl text-sm font-bold pointer-events-none transition-all', toast.type === 'success' ? 'bg-emerald-600 text-white' : 'bg-rose-600 text-white']"
                     dir="rtl"
                 >
                     {{ toast.msg }}
