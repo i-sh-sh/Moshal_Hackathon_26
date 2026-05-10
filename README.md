@@ -1,3 +1,5 @@
+<div dir="rtl">
+
 # TeamSprintUp
 
 **השכבה האישית שחסרה ל-TechSchool.**
@@ -22,19 +24,34 @@
 
 הפער שגילינו אינו תחושה — הוא מתועד היטב בספרות החינוכית.
 
+<br>
+
 > *"What students learn in school is often inert — decontextualized from the authentic activities of practitioners. The gap between school knowledge and workplace practice is not a failure of effort, but a structural feature of how schooling is organized."*
+>
 > — Brown, Collins & Duguid, *Educational Researcher* (1989) [¹](#מקורות)
 
+<br>
+
 > *"Feedback is among the most powerful influences on learning and achievement — yet its effect depends critically on whether it is ongoing, specific, and tied to the individual learner's current position."*
+>
 > — Hattie & Timperley, *Review of Educational Research* (2007) [²](#מקורות)
 
+<br>
+
 > *"Inside the black box, formative assessment — continuous, personal, and responsive — raises standards of achievement in ways that summative, end-of-year testing cannot."*
+>
 > — Black & Wiliam, *Assessment in Education* (1998) [³](#מקורות)
 
+<br>
+
 > *"What a child can do with assistance today, she will be able to do by herself tomorrow. Learning occurs in the space between what is known and what is just within reach — the zone of proximal development."*
+>
 > — Vygotsky, *Mind in Society* (1978) [⁴](#מקורות)
 
+<br>
+
 > *"Learning analytics enables educators to understand learners at a level of granularity previously impossible — tracking not just outcomes, but the trajectory that produced them."*
+>
 > — Siemens, *American Behavioral Scientist* (2013) [⁵](#מקורות)
 
 ---
@@ -45,19 +62,19 @@
 
 כל צוות של 4 תלמידים מתפקד כחברת הייטק קטנה, עם תפקידים אמיתיים:
 
-| תפקיד | מה הוא עושה |
-|--------|-------------|
-| **Editor** (PM) | מנהל את תהליך העבודה, מאשר לאחר בדיקת QA |
-| **QA** | בודק את התוצר לפי checklist לפני שמגיע לעורך |
-| **Designer** (Dev) | מפתח ומגיש את התוצר |
-| **Printer** (Hardware) | מממש ומגיש את התוצר הפיזי |
+| מה הוא עושה | תפקיד |
+|-------------|--------|
+| מנהל את תהליך העבודה, מאשר לאחר בדיקת QA | **Editor** (PM) |
+| בודק את התוצר לפי checklist לפני שמגיע לעורך | **QA** |
+| מפתח ומגיש את התוצר | **Designer** (Dev) |
+| מממש ומגיש את התוצר הפיזי | **Printer** (Hardware) |
 
 עבודה לא מתקבלת עד שעברה את כל שלבי האישור — **בדיוק כמו בחברה אמיתית**.
 
 ```
-תלמיד מגיש → QA בודק → Editor מאשר → מורה מאשר → ✅
-     ↑               ↓               ↓
-     └───── דחייה עם הערות ←────────┘
+✅ ← מורה מאשר ← Editor מאשר ← QA בודק ← תלמיד מגיש
+                      ↓               ↓              ↑
+                      └───── דחייה עם הערות ─────────┘
 ```
 
 כל דחייה היא הזדמנות לימוד, לא כישלון. התלמיד מקבל משוב, משפר, ומגיש מחדש.
@@ -88,12 +105,12 @@
 
 מעל הצ'אט הקבוצתי רץ מנוע AI — **DUDE** (Dynamic Understanding & Development Engine) — שמנתח את השיחות ובונה לכל תלמיד פרופיל לימודי:
 
-| מדד | מה הוא מודד |
-|------|-------------|
-| **ציון ז'רגון מקצועי** (0–100) | האם התלמיד מדבר בשפת המקצוע? |
-| **ציון Soft Skills** (0–100) | תקשורת, שיתוף פעולה, יוזמה |
-| **מונחים שזוהו** | אוצר מילים מקצועי שנטמע בפועל |
-| **אזורי קושי** | נושאים שחוזרים כבעיה |
+| מה הוא מודד | מדד |
+|-------------|-----|
+| האם התלמיד מדבר בשפת המקצוע? | **ציון ז'רגון מקצועי** (0–100) |
+| תקשורת, שיתוף פעולה, יוזמה | **ציון Soft Skills** (0–100) |
+| אוצר מילים מקצועי שנטמע בפועל | **מונחים שזוהו** |
+| נושאים שחוזרים כבעיה | **אזורי קושי** |
 
 הפרופיל נבנה **לאורך כל השנה** — לא סנאפשוט נקודתי. המורה רואה לא רק איפה התלמיד נמצא, אלא **לאן הוא הולך**.
 
@@ -127,3 +144,5 @@
 ## טכנולוגיה
 
 NestJS · Nuxt 3 · PostgreSQL (Supabase) · Azure OpenAI gpt-4o · Tailwind CSS
+
+</div>
