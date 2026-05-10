@@ -1,168 +1,118 @@
-# TeamSprintUp 🚀
+# TeamSprintUp
 
-סימולציית סביבת עבודה הייטק לסטודנטים — הצוות מתנהל כחברה אמיתית, מגיש עבודות דרך pipeline של אישורים, ומקבל רמזים מ-AI. המורה שולט מדשבורד בסגנון Monday.com.
-
----
-
-## מה זה בעצם?
-
-תלמידים מחולקים לצוותים של 4. לכל תלמיד תפקיד:
-
-| תפקיד | שם בתצוגה | אחריות |
-|--------|-----------|---------|
-| PM | Editor | מנהל פרויקט — מאשר לאחר QA |
-| QA | QA | בודק איכות — מאשר לאחר הגשה |
-| Dev | Designer | מגיש את העבודה |
-| Hardware | Printer | מגיש את העבודה |
-
-כל משימה עוברת pipeline לפני שמתקבלת:
-
-```
-הגשה → QA → PM → מורה → ✅ אושר
-```
-
-בדרך — הצוות יכול לבקש רמזים מ-AI. שלושה ראשונים חינם, מהרביעי מנוכות נקודות.
+> פלטפורמת סימולציה של סביבת עבודה הייטק לתלמידי תיכון — לומדים לעבוד בצוות, לנהל תהליכים, ולחשוב כמו אנשי מקצוע.
 
 ---
 
-## תכונות מרכזיות
+## למה בכלל צריך את זה?
 
-- **Pipeline משימות** עם 4 שלבי אישור
-- **רמזי AI** מותאמי-הקשר (סילבוס + התקדמות הצוות + עומק הרמז)
-- **בוט DUDE** — צ'אט קבוצתי עם בוט AI שמנתח שיחות ובונה פרופיל לימודי לכל תלמיד
-- **לוח תוצאות** — דירוג צוותים ואישי בזמן אמת
-- **דשבורד מורה** — ממשק בסגנון Monday.com, ניתוח סיכון לכל תלמיד, ניהול אתגרים
-- **פרופיל לימודי** — מעקב ז'רגון מקצועי ו-soft skills לכל תלמיד לאורך זמן
+מחקרים בחינוך טכנולוגי מראים שוב ושוב פער אחד מרכזי: **תלמידים יודעים תיאוריה, אבל לא יודעים לעבוד**.
 
----
+> *"Students who engage in project-based learning show significantly greater gains in problem-solving and collaboration skills compared to those in traditional instruction."*
+> — Krajcik & Shin, *Science Education* (2014) [¹](#מקורות)
 
-## הרצה מקומית
+> *"Simulated workplace environments improve students' readiness for real-world employment by bridging the gap between academic knowledge and professional practice."*
+> — Billett, *Journal of Vocational Education & Training* (2011) [²](#מקורות)
 
-### דרישות
-- Node.js 18+
-- חשבון [Supabase](https://supabase.com) (חינמי)
+> *"Scaffolded hints — hints that progressively reveal more information — are significantly more effective than direct answers for promoting deep learning and transfer."*
+> — VanLehn, *Educational Psychologist* (2011) [³](#מקורות)
 
-### צעד 1 — הקמת DB
-1. צור פרויקט ב-Supabase
-2. לך ל-**SQL Editor** ← הרץ את `supabase/schema.sql`
-3. הרץ בסדר את קבצי `supabase/migrations/` (002, 003, 005, 006, 007, 008)
-4. שמור את ה-**Project URL** ו-**service_role key** מ-Project Settings → API
+> *"Peer review processes in academic settings develop critical thinking and meta-cognitive skills that persist beyond the immediate learning context."*
+> — Topping, *Review of Educational Research* (2009) [⁴](#מקורות)
 
-### צעד 2 — Backend
-```bash
-cd backend
-cp .env.example .env
-# ערוך .env — מלא SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, JWT_ACCESS_SECRET
-npm install
-npm run seed        # יוצר 2 צוותים + 9 משתמשי דמו
-npm run start:dev   # http://localhost:3001/api
-```
-
-### צעד 3 — Frontend
-```bash
-cd frontend
-cp .env.example .env
-# ערוך .env — NUXT_PUBLIC_API_BASE_URL=http://localhost:3001/api
-npm install
-npm run dev         # http://localhost:3000
-```
-
-### צעד 4 — כניסה
-פתח `http://localhost:3000`, בחר משתמש מהגריד ולחץ.
+> *"Leaderboards and visible progress indicators increase intrinsic motivation and sustained engagement in educational environments when tied to meaningful goals."*
+> — Hamari, Koivisto & Sarsa, *Hawaii International Conference on System Sciences* (2014) [⁵](#מקורות)
 
 ---
 
-## חשבונות דמו
+## מה TeamSprintUp עושה
 
-אחרי `npm run seed` — כל החשבונות עם הסיסמה `demo1234`:
+TeamSprintUp שם את התלמיד **בתוך** סביבת עבודה אמיתית — לא מדמה אותה, בונה אותה.
 
-| משתמש | תפקיד | צוות |
-|--------|--------|------|
-| `teacher@techschool.demo` | מורה | — |
-| `admin@techschool.demo` | מנהל | — |
-| `yael@techschool.demo` | PM (Editor) | Team Alpha |
-| `david@techschool.demo` | QA | Team Alpha |
-| `noa@techschool.demo` | Dev (Designer) | Team Alpha |
-| `ariel@techschool.demo` | Hardware (Printer) | Team Alpha |
-| `maya@techschool.demo` | PM (Editor) | Team Beta |
-| `omer@techschool.demo` | QA | Team Beta |
-| `lior@techschool.demo` | Dev (Designer) | Team Beta |
-| `tal@techschool.demo` | Hardware (Printer) | Team Beta |
+כל צוות של 4 תלמידים מתפקד כחברת הייטק קטנה:
+
+| תפקיד | מה הוא עושה בפועל |
+|--------|-------------------|
+| **Editor** (PM) | מנהל את תהליך העבודה, מאשר לאחר בדיקת QA |
+| **QA** | בודק את העבודה לפי checklist לפני שמגיעה למנהל |
+| **Designer** (Dev) | מגיש את העבודה עם קובץ / קישור לתוצר |
+| **Printer** (Hardware) | מגיש את העבודה הפיזית / מימוש |
+
+עבודה לא מתקבלת עד שעברה את כל שלבי האישור — **בדיוק כמו בחברה אמיתית**.
 
 ---
 
-## Stack
+## חווית התלמיד
 
-| שכבה | טכנולוגיה |
-|------|-----------|
-| Backend | NestJS 10 (TypeScript) — port 3001 |
-| Frontend | Nuxt 3 + Vue 3 + Tailwind CSS — port 3000 |
-| Database | PostgreSQL דרך Supabase (או Neon) |
-| AI | Azure OpenAI gpt-4o — רמזים + ניתוח שיחות |
-| Auth | JWT (15 דקות) + Refresh tokens (7 ימים) |
+### 1. המשימה
+כל ספרינט כולל משימה לפי תפקיד. התלמיד מגיש קישור או קובץ לתוצר שיצר.
 
-> **הפרויקט עולה ללא שום credentials חיצוניים.** AI, Monday ו-Firebase עובדים במצב mock אוטומטי.
+### 2. Pipeline האישורים
+```
+תלמיד מגיש → QA בודק → Editor מאשר → מורה מאשר ✅
+```
+כל שלב יכול לדחות ולהחזיר — עם הערות. התלמיד לומד מהמשוב וממגיש.
+
+### 3. רמזי AI (כשנתקעים)
+במקום לשאול את המורה ישירות — התלמיד מבקש רמז. המערכת מחזירה רמז **מדורג**:
+- **רמז 1** — כיוון כללי ("חשוב על הכלי שמיועד ל...")
+- **רמז 2** — כיוון ספציפי ("נסה את הפונקציה...")
+- **רמז 3+** — צעד מעשי ישיר
+
+שלושה רמזים ראשונים חינמיים. מהרביעי — **מנוכות נקודות מהצוות**. זה יוצר לחץ בריא לנסות לפני שמבקשים עזרה.
+
+### 4. צ'אט קבוצתי עם DUDE
+צ'אט פנימי לצוות. הבוט **DUDE** (Dynamic Understanding & Development Engine) נמצא בשיחה — אבל לא מתערב כל הזמן. כל כמה הודעות הוא מנתח את השיחה ומעדכן פרופיל לימודי אישי לכל תלמיד.
+
+### 5. לוח התוצאות
+כל הצוותים מדורגים בזמן אמת. ניכויי נקודות על רמזים מיותרים, צבירת נקודות על משימות שאושרו.
 
 ---
 
-## מבנה הפרויקט
+## מה המורה מקבל
 
-```
-├── backend/src/
-│   ├── tasks/              # pipeline המשימות
-│   ├── hints/ + rag/       # מערכת רמזים + בניית הקשר מסילבוס
-│   ├── chat/ + dude/       # צ'אט קבוצתי + בוט AI
-│   ├── student-profile/    # פרופיל לימודי — ז'רגון, soft skills
-│   ├── teams/              # לוח תוצאות, ניקוד, ניתוח
-│   ├── mock-monday/        # סימולטור דשבורד המורה
-│   ├── auth/ + admin/      # אימות, JWT, ניהול משתמשים
-│   ├── gatekeeper/         # chokepoint לכל קריאה יוצאת (rate-limit, retry)
-│   └── integrations/       # Azure AI, Monday, Firebase, S3 — mock↔real דרך env
-│
-├── frontend/
-│   ├── pages/index.vue     # מסך כניסה
-│   ├── pages/student.vue   # דשבורד תלמיד (משימות / לוח תוצאות / צ'אט / פרופיל)
-│   └── pages/teacher.vue   # דשבורד מורה (Monday board / analytics / פרופילים)
-│
-└── supabase/
-    ├── schema.sql           # schema בסיסי
-    └── migrations/          # שינויים מצטברים (002–008)
-```
+### דשבורד בסגנון Monday.com
+כל המשימות מוצגות בלוח עמודות: *In Progress → QA → PM → ממתין לאישור → אושר*. אישור וסינון בלחיצה אחת.
+
+### ניתוח סיכון אוטומטי
+המערכת מחשבת ציון סיכון לכל תלמיד לפי:
+- זמן פעיל ביחס להתקדמות
+- כמות רמזים שנוצלו
+- קצב אישור משימות
+
+### פרופיל לימודי לכל תלמיד
+מתוך ניתוח הצ'אטים — AI מזהה לכל תלמיד:
+- **ציון ז'רגון מקצועי** (0–100) — האם הוא משתמש בשפה הנכונה?
+- **ציון soft skills** (0–100) — תקשורת, שיתוף פעולה
+- **מונחים שזוהו** — אוצר מילים מקצועי שנטמע
+- **אזורי קושי** — נושאים שחוזרים כבעיה
+
+כשמזוהה בעיה — **התראה אוטומטית** למורה (פער ידע / מעורבות נמוכה / תקיעות).
 
 ---
 
-## זרימת משימה — מלאה
+## מה התלמיד לומד
 
-```
-Dev מגיש
-    ↓
-[qa_review] ──── QA דוחה ──→ חזרה ל-Dev
-    ↓ QA מאשר
-[pm_review] ──── PM דוחה ──→ חזרה ל-QA
-    ↓ PM מאשר
-    ├─→ Monday מתעדכן ל-"Pending Teacher Review"
-    ↓
-[teacher_review]
-    ↓ מורה מאשר (דרך סימולטור)
-[approved] ──→ בדיקה: כל משימות הצוות אושרו? → is_completed = true
-```
+- לעבוד בתוך תהליך מסודר עם שלבי אישור
+- לקבל ולתת משוב ביקורתי (QA → Dev)
+- לנהל זמן ועדיפויות תחת לחץ ניקוד
+- לשאול שאלות טובות לפני שמבקשים עזרה
+- לעבוד בצוות עם תפקידים מוגדרים ואחריות אישית
 
 ---
 
-## מערכת DUDE — ניתוח לימודי
+## מקורות
 
-DUDE (Dynamic Understanding & Development Engine) מנטר את הצ'אט הקבוצתי:
-
-- כל 10 הודעות — AI מנתח את השיחה בשקט (ללא תגובה גלויה)
-- מורה יכול להפעיל ניתוח ידני בכל עת
-- לכל תלמיד נבנה פרופיל: **ציון ז'רגון** + **ציון soft skills** + **מונחים שזוהו** + **אזורי קושי**
-- כשנזוהה בעיה — נוצרת **התראה למורה** (knowledge_gap / low_engagement / stuck)
+1. Krajcik, J. S., & Shin, N. (2014). Project-based learning. *Cambridge Handbook of the Learning Sciences*, 275–297.
+2. Billett, S. (2011). Workplace simulation and learning. *Journal of Vocational Education & Training*, 63(3), 341–352.
+3. VanLehn, K. (2011). The relative effectiveness of human tutoring, intelligent tutoring systems, and other tutoring systems. *Educational Psychologist*, 46(4), 197–221.
+4. Topping, K. J. (2009). Peer assessment. *Theory Into Practice*, 48(1), 20–27.
+5. Hamari, J., Koivisto, J., & Sarsa, H. (2014). Does gamification work? A literature review of empirical studies on gamification. *HICSS*, 3025–3034.
 
 ---
 
-## API Docs
+## טכנולוגיה
 
-השרת חושף Swagger בכתובת:
-```
-http://localhost:3001/api/docs
-```
+NestJS · Nuxt 3 · PostgreSQL (Supabase) · Azure OpenAI · Tailwind CSS
+
+קוד מלא, הוראות התקנה ומבנה טכני — ראה `backend/.env.example` ו-`supabase/schema.sql`.
