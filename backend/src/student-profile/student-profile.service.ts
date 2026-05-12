@@ -39,6 +39,7 @@ export interface ProfileSnapshot {
 export interface TeacherAlert {
     id: string;
     userId: string | null;
+    userName: string | null;
     channelId: string | null;
     alertType: string;
     message: string;
@@ -84,7 +85,7 @@ export class StudentProfileService {
     async getAlerts(onlyUnread = true): Promise<TeacherAlert[]> {
         let query = this.supabase.db
             .from('teacher_alerts')
-            .select('*')
+            .select('*, student:users!user_id(name)')
             .order('created_at', { ascending: false })
             .limit(50);
 
@@ -226,6 +227,7 @@ export class StudentProfileService {
         return {
             id: r.id,
             userId: r.user_id,
+            userName: r.student?.name ?? null,
             channelId: r.channel_id,
             alertType: r.alert_type,
             message: r.message,
