@@ -369,11 +369,30 @@ watch(activeTab, (tab) => {
                                     :key="alert.id"
                                     class="flex items-center gap-3 text-xs text-red-800 bg-white/70 px-3 py-2 rounded-xl border border-red-100"
                                 >
+                                    <!-- Type badge -->
                                     <span class="shrink-0 font-bold px-2 py-0.5 rounded-lg bg-red-100 text-red-700">
                                         {{ alert.alertType === 'stuck' ? 'תקוע' : 'התראה' }}
                                     </span>
-                                    <span class="flex-1">{{ alert.message }}</span>
-                                    <button class="shrink-0 text-red-400 hover:text-red-600 transition-colors text-xs cursor-pointer" @click="markAlertRead(alert.id)">סמן כנקרא</button>
+
+                                    <!-- Student name — clickable link to profile -->
+                                    <NuxtLink
+                                        v-if="alert.userId"
+                                        :to="`/teacher-student/${alert.userId}`"
+                                        class="shrink-0 font-bold text-red-900 hover:text-[#3CC2EE] underline underline-offset-2 transition-colors cursor-pointer"
+                                    >
+                                        {{ alert.userName ?? 'תלמיד' }}
+                                    </NuxtLink>
+
+                                    <!-- Message -->
+                                    <span class="flex-1 text-red-700">{{ alert.message }}</span>
+
+                                    <!-- Mark read -->
+                                    <button
+                                        class="shrink-0 text-red-400 hover:text-red-600 transition-colors cursor-pointer"
+                                        @click="markAlertRead(alert.id)"
+                                    >
+                                        סמן כנקרא
+                                    </button>
                                 </li>
                             </ul>
                             <button
