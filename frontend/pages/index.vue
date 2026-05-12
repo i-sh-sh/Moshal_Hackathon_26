@@ -248,6 +248,38 @@ const roles_data = [
     },
 ];
 
+// ── Role assignment demo ────────────────────────────────────────────────
+const assignRoles = [
+    { name: 'נועה כהן',  role: null as string|null, avatar: 'from-[#3CC2EE] to-cyan-500' },
+    { name: 'יובל לוי',  role: null as string|null, avatar: 'from-violet-400 to-purple-500' },
+    { name: 'מאיה ברק',  role: null as string|null, avatar: 'from-amber-400 to-orange-500' },
+    { name: 'עמית דוד',  role: null as string|null, avatar: 'from-emerald-400 to-teal-500' },
+];
+
+const roleOptions = [
+    { key: 'dev',      label: 'מפתח/ת',        cls: 'bg-violet-100 text-violet-700 border-violet-200' },
+    { key: 'design',   label: 'מעצב/ת',         cls: 'bg-blue-100 text-blue-700 border-blue-200' },
+    { key: 'qa',       label: 'QA',              cls: 'bg-amber-100 text-amber-700 border-amber-200' },
+    { key: 'hardware', label: 'מנהל מדפסת',     cls: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
+];
+
+onMounted(() => {
+    // auto-assign roles one by one for demo
+    const sequence = ['dev', 'design', 'qa', 'hardware'];
+    sequence.forEach((role, i) => {
+        setTimeout(() => {
+            assignRoles[i].role = role;
+        }, i * 900 + 800);
+    });
+    // reset and replay
+    setInterval(() => {
+        assignRoles.forEach(s => { s.role = null; });
+        sequence.forEach((role, i) => {
+            setTimeout(() => { assignRoles[i].role = role; }, i * 900 + 400);
+        });
+    }, sequence.length * 900 + 4000);
+});
+
 const techStack = [
     { name: 'NestJS',      color: 'text-red-600',     icon: `<circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/>` },
     { name: 'Nuxt 3',      color: 'text-emerald-600',  icon: `<path d="M12 2L2 19h20L12 2z"/>` },
@@ -888,6 +920,92 @@ const techStack = [
         </section>
 
         <!-- ══════════════════════════════════════════════════════════════
+             TEACHER: ROLE ASSIGNMENT DEMO
+        ══════════════════════════════════════════════════════════════ -->
+        <section class="px-6 py-20 max-w-6xl mx-auto" data-reveal>
+            <div class="flex flex-col lg:flex-row items-center gap-12">
+
+                <!-- LEFT: explanation -->
+                <div class="flex-1 text-right" data-stagger>
+                    <span class="inline-flex items-center gap-2 text-xs font-bold text-violet-500 uppercase tracking-widest mb-3">
+                        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                            <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/>
+                            <line x1="23" y1="11" x2="17" y2="11"/><line x1="20" y1="8" x2="20" y2="14"/>
+                        </svg>
+                        שיבוץ תפקידים
+                    </span>
+                    <h2 class="text-3xl font-black text-gray-900 mb-4">כל תלמיד<br>יודע מה תפקידו</h2>
+                    <ul class="flex flex-col gap-3">
+                        <li v-for="b in [
+                            'המורה מקצה תפקיד לכל תלמיד בלחיצה אחת',
+                            'כל תלמיד רואה מיד את תפקידו וצבע הצוות שלו',
+                            'ניתן לשנות שיבוץ בכל שלב של הספרינט',
+                            '4 תפקידים קבועים — אחריות ברורה לכולם',
+                        ]" :key="b" class="flex items-start gap-2.5 text-sm text-gray-600">
+                            <span class="mt-0.5 w-5 h-5 rounded-full bg-violet-400/15 flex items-center justify-center shrink-0">
+                                <svg class="w-3 h-3 text-violet-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                            </span>
+                            {{ b }}
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- RIGHT: assignment panel mockup -->
+                <div class="w-full lg:w-[380px] shrink-0" data-stagger>
+                    <div class="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
+                        <!-- Header -->
+                        <div class="flex items-center gap-2.5 px-5 py-4 border-b border-gray-100 bg-gray-50/50">
+                            <div class="w-7 h-7 rounded-lg bg-violet-100 flex items-center justify-center">
+                                <svg class="w-3.5 h-3.5 text-violet-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                    <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/>
+                                    <line x1="23" y1="11" x2="17" y2="11"/><line x1="20" y1="8" x2="20" y2="14"/>
+                                </svg>
+                            </div>
+                            <span class="font-bold text-sm text-gray-900">שיבוץ תפקידים — צוות אלפא</span>
+                        </div>
+
+                        <!-- Student rows -->
+                        <div class="p-4 flex flex-col gap-2.5">
+                            <div
+                                v-for="s in assignRoles"
+                                :key="s.name"
+                                class="flex items-center gap-3 bg-gray-50 border border-gray-100 rounded-2xl px-3.5 py-3 transition-all duration-300"
+                                :class="s.role ? 'border-gray-200' : ''"
+                            >
+                                <!-- Avatar -->
+                                <div :class="['w-8 h-8 rounded-full bg-gradient-to-br flex items-center justify-center text-white text-xs font-bold shrink-0', s.avatar]">
+                                    {{ s.name.charAt(0) }}
+                                </div>
+
+                                <!-- Name -->
+                                <span class="flex-1 text-sm font-semibold text-gray-800 min-w-0 truncate">{{ s.name }}</span>
+
+                                <!-- Role chip or placeholder -->
+                                <Transition name="role-chip">
+                                    <span
+                                        v-if="s.role"
+                                        :key="s.role"
+                                        :class="['text-[11px] font-bold px-2.5 py-1 rounded-full border shrink-0 transition-all', roleOptions.find(r => r.key === s.role)?.cls]"
+                                    >
+                                        {{ roleOptions.find(r => r.key === s.role)?.label }}
+                                    </span>
+                                    <span v-else class="text-[11px] text-gray-300 font-medium shrink-0 px-2">ממתין...</span>
+                                </Transition>
+                            </div>
+                        </div>
+
+                        <!-- Save button -->
+                        <div class="px-4 pb-4">
+                            <button class="w-full bg-[#3CC2EE] text-white text-sm font-bold py-2.5 rounded-xl shadow-sm opacity-80 cursor-default">
+                                שמור שיבוץ
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ══════════════════════════════════════════════════════════════
              TEACHER: SMART ALERTS DEMO
         ══════════════════════════════════════════════════════════════ -->
         <section class="px-4 py-20 bg-gray-900 rounded-3xl mx-4 mb-4" data-reveal>
@@ -1019,6 +1137,72 @@ const techStack = [
         </section>
 
         <!-- ══════════════════════════════════════════════════════════════
+             FINAL CTA
+        ══════════════════════════════════════════════════════════════ -->
+        <section class="px-4 py-6 max-w-6xl mx-auto" data-reveal>
+            <div class="relative bg-gradient-to-br from-gray-900 via-[#0e1a2b] to-gray-900 rounded-3xl overflow-hidden px-8 py-16 text-center">
+                <!-- Background glow -->
+                <div class="absolute top-0 left-1/2 -translate-x-1/2 w-[500px] h-[300px] rounded-full bg-[#3CC2EE]/15 blur-3xl pointer-events-none" />
+                <div class="absolute bottom-0 right-0 w-64 h-64 rounded-full bg-violet-500/10 blur-3xl pointer-events-none" />
+
+                <!-- Dots grid decoration -->
+                <div class="absolute inset-0 opacity-[0.03]"
+                    style="background-image: radial-gradient(circle, white 1px, transparent 1px); background-size: 28px 28px;" />
+
+                <div class="relative z-10">
+                    <!-- Badge -->
+                    <div class="inline-flex items-center gap-2 bg-[#3CC2EE]/15 border border-[#3CC2EE]/30 text-[#3CC2EE] px-4 py-1.5 rounded-full text-xs font-bold mb-6">
+                        <span class="w-1.5 h-1.5 rounded-full bg-[#3CC2EE] animate-pulse" />
+                        TeamSprintUp מוכן לשימוש
+                    </div>
+
+                    <!-- Headline -->
+                    <h2 class="text-4xl sm:text-5xl font-black text-white leading-tight mb-4">
+                        מוכנים לחוות<br>
+                        <span class="text-[#3CC2EE]">הייטק אמיתי?</span>
+                    </h2>
+                    <p class="text-gray-400 text-base max-w-md mx-auto leading-relaxed mb-10">
+                        בחרו את הכניסה שלכם וצאו לספרינט הראשון.
+                    </p>
+
+                    <!-- CTA buttons -->
+                    <div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
+                        <button
+                            class="group flex items-center gap-2.5 px-8 py-4 bg-[#3CC2EE] hover:bg-[#2ba9d4] text-white font-black text-base rounded-2xl shadow-xl shadow-[#3CC2EE]/25 transition-all hover:-translate-y-1 hover:shadow-[#3CC2EE]/40 cursor-pointer"
+                            @click="loginView = 'students'"
+                        >
+                            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>
+                            </svg>
+                            כניסה כתלמיד
+                        </button>
+                        <button
+                            class="group flex items-center gap-2.5 px-8 py-4 bg-white/10 hover:bg-white/20 border border-white/20 hover:border-white/40 text-white font-black text-base rounded-2xl transition-all hover:-translate-y-1 cursor-pointer backdrop-blur-sm"
+                            @click="loginView = 'teachers'"
+                        >
+                            <svg class="w-5 h-5 text-[#3CC2EE]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                <path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/>
+                            </svg>
+                            כניסה כמורה
+                        </button>
+                    </div>
+
+                    <!-- Mini stats -->
+                    <div class="mt-12 flex flex-wrap justify-center gap-10">
+                        <div v-for="s in [
+                            { n:'4', label:'תפקידים מקצועיים' },
+                            { n:'AI', label:'DUDE Bot' },
+                            { n:'100%', label:'חווית הייטק' },
+                        ]" :key="s.label" class="flex flex-col items-center gap-1">
+                            <span class="text-2xl font-black text-white">{{ s.n }}</span>
+                            <span class="text-xs text-gray-500 font-medium">{{ s.label }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ══════════════════════════════════════════════════════════════
              TECH STACK + FOOTER
         ══════════════════════════════════════════════════════════════ -->
         <section class="px-6 pb-12 max-w-6xl mx-auto">
@@ -1123,6 +1307,12 @@ const techStack = [
 .chat-enter-from   { opacity: 0; transform: translateY(10px) scale(0.95); }
 .chat-leave-active { transition: all 0.2s ease; }
 .chat-leave-to     { opacity: 0; }
+
+/* Role chip pop-in */
+.role-chip-enter-active { transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.role-chip-enter-from   { opacity: 0; transform: scale(0.6); }
+.role-chip-leave-active { transition: all 0.15s ease; }
+.role-chip-leave-to     { opacity: 0; transform: scale(0.8); }
 
 /* Leaderboard row transitions */
 .leader-move { transition: transform 0.5s ease; }
