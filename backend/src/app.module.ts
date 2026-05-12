@@ -26,6 +26,9 @@ import { MockMondayModule } from './mock-monday/mock-monday.module';
 import { ChatModule } from './chat/chat.module';
 import { DudeModule } from './dude/dude.module';
 import { StudentProfileModule } from './student-profile/student-profile.module';
+import { EventsModule } from './events/events.module';
+import { PrinterModule } from './printer/printer.module';
+import { LabModule } from './lab/lab.module';
 
 @Module({
     imports: [
@@ -50,6 +53,9 @@ import { StudentProfileModule } from './student-profile/student-profile.module';
         ChatModule,
         StudentProfileModule,
         DudeModule,
+        EventsModule,
+        PrinterModule,
+        LabModule,
     ],
 })
 export class AppModule {}

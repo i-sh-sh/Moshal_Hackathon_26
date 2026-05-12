@@ -5,11 +5,18 @@ export interface TeamMember {
     role: string | null;
 }
 
-defineProps<{
+export type SidebarView = 'status' | 'challenges' | 'events' | 'printer' | 'lab';
+
+const props = defineProps<{
     schoolLabel?: string;
     onLogout?: () => void;
     teamMembers?: TeamMember[];
     hideMentorBot?: boolean;
+    activeView?: SidebarView;
+}>();
+
+const emit = defineEmits<{
+    navigate: [view: SidebarView];
 }>();
 
 const TS_LOGO_URL =
@@ -18,15 +25,15 @@ const TS_LOGO_URL =
 interface NavItem {
     label: string;
     icon: string;
-    onClick?: () => void;
+    view: SidebarView;
 }
 
 const navItems: NavItem[] = [
-    { label: 'המצב שלי',     icon: '🟦' },
-    { label: 'האתגרים שלי',  icon: '🏆' },
-    { label: 'לוח אירועים',   icon: '📅' },
-    { label: 'תפעול מדפסת',  icon: '🛠️' },
-    { label: 'המעבדה',       icon: '🧪' },
+    { label: 'המצב שלי',    icon: '🟦', view: 'status' },
+    { label: 'האתגרים שלי', icon: '🏆', view: 'challenges' },
+    { label: 'לוח אירועים',  icon: '📅', view: 'events' },
+    { label: 'תפעול מדפסת', icon: '🛠️', view: 'printer' },
+    { label: 'המעבדה',      icon: '🧪', view: 'lab' },
 ];
 
 const ROLE_DISPLAY: Record<string, string> = {
@@ -68,10 +75,7 @@ function initials(name: string): string {
         </div>
 
         <!-- School label -->
-        <p
-            v-if="schoolLabel"
-            class="text-white text-xs font-semibold text-center mt-1 mb-2"
-        >
+        <p v-if="schoolLabel" class="text-white text-xs font-semibold text-center mt-1 mb-2">
             {{ schoolLabel }}
         </p>
 
@@ -79,29 +83,26 @@ function initials(name: string): string {
         <button
             v-for="item in navItems"
             :key="item.label"
-            class="bg-white hover:bg-gray-50 rounded-full px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm flex items-center justify-between gap-2 transition-colors"
-            @click="item.onClick"
+            class="rounded-full px-4 py-2 text-sm font-semibold shadow-sm flex items-center justify-between gap-2 transition-all cursor-pointer"
+            :class="activeView === item.view
+                ? 'bg-white text-[#3CC2EE] ring-2 ring-white/60'
+                : 'bg-white/90 hover:bg-white text-gray-700'"
+            @click="emit('navigate', item.view)"
         >
             <span>{{ item.label }}</span>
             <span>{{ item.icon }}</span>
         </button>
 
-        <!-- "הכר את הצוות" panel — shown only when teamMembers prop is passed -->
+        <!-- Team members panel -->
         <div v-if="teamMembers && teamMembers.length" class="mt-2 bg-white/20 rounded-2xl p-3 flex flex-col gap-2">
-            <p class="text-white text-xs font-extrabold text-center tracking-wide">הכר את הצוות</p>
-            <div
-                v-for="member in teamMembers"
-                :key="member.id"
-                class="flex items-center gap-2"
-            >
-                <!-- Initials circle -->
+            <p class="text-white text-xs font-bold text-center tracking-wide">הכר את הצוות</p>
+            <div v-for="member in teamMembers" :key="member.id" class="flex items-center gap-2">
                 <div
                     class="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
                     :class="member.role ? (INITIAL_BG[member.role] ?? 'bg-gray-400') : 'bg-gray-400'"
                 >
                     {{ initials(member.name) }}
                 </div>
-                <!-- Name + role -->
                 <div class="flex flex-col min-w-0">
                     <span class="text-white text-xs font-semibold leading-tight truncate">{{ member.name }}</span>
                     <span
@@ -128,7 +129,7 @@ function initials(name: string): string {
         <!-- Logout -->
         <button
             v-if="onLogout"
-            class="bg-white/90 hover:bg-white rounded-full px-4 py-2 text-xs font-semibold text-gray-700 shadow-sm flex items-center justify-center gap-2 transition-colors"
+            class="bg-white/90 hover:bg-white rounded-full px-4 py-2 text-xs font-semibold text-gray-700 shadow-sm flex items-center justify-center gap-2 transition-colors cursor-pointer"
             @click="onLogout"
         >
             <span>↩</span><span>התנתק</span>

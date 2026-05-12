@@ -18,3 +18,7 @@ project-structure.json
 
 # Claude Code AI instructions (not for public repos)
 CLAUDE.md
+
+# Python cache
+__pycache__/
+*.pyc
