@@ -43,6 +43,7 @@ const typedIdx = ref(0);
 const typedVisible = ref(true);
 
 onMounted(() => {
+    // Typed role cycling
     setInterval(() => {
         typedVisible.value = false;
         setTimeout(() => {
@@ -52,13 +53,12 @@ onMounted(() => {
         }, 300);
     }, 2200);
 
-    // Intersection Observer for scroll-reveal
+    // Scroll-reveal
     const observer = new IntersectionObserver(
         (entries) => {
             entries.forEach(entry => {
                 if (entry.isIntersecting) {
                     entry.target.classList.add('reveal-in');
-                    // stagger children
                     const kids = entry.target.querySelectorAll('[data-stagger]');
                     kids.forEach((el, i) => {
                         (el as HTMLElement).style.transitionDelay = `${i * 100}ms`;
@@ -70,11 +70,27 @@ onMounted(() => {
         },
         { threshold: 0.12 }
     );
-
     document.querySelectorAll('[data-reveal]').forEach(el => observer.observe(el));
 
-    // Chat animation
+    // Chat demo
     startChatLoop();
+
+    // Mission cycle
+    setInterval(() => {
+        const idx = missionTeams.value.findIndex(t => t.status === 'idle');
+        if (idx !== -1) {
+            missionTeams.value[idx].status = 'active';
+        } else {
+            missionTeams.value = [
+                { name: 'צוות אלפא', status: 'active' },
+                { name: 'צוות ביתא', status: 'idle' },
+                { name: 'צוות גמא',  status: 'completed' },
+            ];
+        }
+    }, 2600);
+
+    // Alert demo
+    startAlertLoop();
 });
 
 // ── Animated chat demo ──────────────────────────────────────────────────
@@ -131,6 +147,38 @@ function alertCls(a: string) {
     if (a === 'high')   return { cls: 'bg-red-50 border-red-200 text-red-700', dot: 'bg-red-500', label: 'דורש תשומת לב' };
     if (a === 'medium') return { cls: 'bg-amber-50 border-amber-200 text-amber-700', dot: 'bg-amber-400', label: 'בדוק/י' };
     return null;
+}
+
+// ── Teacher mission demo — cycling status ───────────────────────────────
+const missionTeams = ref([
+    { name: 'צוות אלפא', status: 'active'    as 'idle'|'active'|'completed' },
+    { name: 'צוות ביתא', status: 'idle'      as 'idle'|'active'|'completed' },
+    { name: 'צוות גמא',  status: 'completed' as 'idle'|'active'|'completed' },
+]);
+
+const missionStatusConfig = {
+    idle:      { label: 'לא התחיל', cls: 'bg-gray-100 text-gray-500',    btn: 'bg-[#3CC2EE] text-white',  btnLabel: 'פתח לצוות' },
+    active:    { label: 'פעיל',      cls: 'bg-emerald-100 text-emerald-700', btn: 'bg-rose-500 text-white',   btnLabel: 'סגור' },
+    completed: { label: 'הושלם',    cls: 'bg-cyan-100 text-cyan-700',     btn: 'bg-amber-500 text-white',  btnLabel: 'פתח מחדש' },
+};
+
+// ── Teacher alerts demo ─────────────────────────────────────────────────
+const alertDemo = ref<Array<{id:number; name:string; type:string; msg:string; read:boolean}>>([]);
+const alertPool = [
+    { id:1, name:'יובל לוי',   type:'תקוע',  msg:'לא השלים אף משימה ב-48 שעות האחרונות' },
+    { id:2, name:'רוני שרון',  type:'פערים', msg:'ציון הז\'רגון ירד מ-61 ל-34 — נושא: Git' },
+    { id:3, name:'ליאל גבאי',  type:'תקוע',  msg:'שואל את DUDE על אותו נושא בפעם ה-5' },
+];
+
+function startAlertLoop() {
+    alertDemo.value = [];
+    alertPool.forEach((a, i) => {
+        setTimeout(() => alertDemo.value.push({ ...a, read: false }), i * 1100 + 300);
+    });
+    setTimeout(() => {
+        alertDemo.value = alertDemo.value.map(a => ({ ...a, read: true }));
+        setTimeout(startAlertLoop, 1800);
+    }, alertPool.length * 1100 + 2200);
 }
 
 const techStack = [
@@ -321,7 +369,7 @@ const techStack = [
                         <svg class="w-7 h-7 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" v-html="`<path d='${step.icon}'/>`" />
                     </div>
                     <div>
-                        <span class="text-[10px] font-black text-gray-300 tracking-widest">{{ step.n }}</span>
+                        <span class="text-[10px] font-black text-[#3CC2EE] tracking-widest">{{ step.n }}</span>
                         <h3 class="font-bold text-gray-900 text-base mt-0.5">{{ step.title }}</h3>
                         <p class="text-sm text-gray-500 mt-1 leading-relaxed">{{ step.desc }}</p>
                     </div>
@@ -452,7 +500,7 @@ const techStack = [
                             <!-- Column header -->
                             <div class="flex items-center gap-1.5 px-2 py-1 rounded-lg mb-1">
                                 <span :class="['text-[10px] font-bold px-2 py-0.5 rounded-full', col.color]">{{ col.label }}</span>
-                                <span class="text-[10px] text-gray-500">{{ col.tasks.length }}</span>
+                                <span class="text-[10px] font-bold text-gray-300">{{ col.tasks.length }}</span>
                             </div>
                             <!-- Task cards -->
                             <div v-for="task in col.tasks" :key="task.title"
@@ -546,6 +594,184 @@ const techStack = [
         </section>
 
         <!-- ══════════════════════════════════════════════════════════════
+             TEACHER: MISSION CONTROL DEMO
+        ══════════════════════════════════════════════════════════════ -->
+        <section class="px-6 py-20 max-w-6xl mx-auto" data-reveal>
+            <div class="flex flex-col lg:flex-row items-center gap-12">
+
+                <!-- LEFT: explanation -->
+                <div class="flex-1 text-right" data-stagger>
+                    <span class="inline-flex items-center gap-2 text-xs font-bold text-[#3CC2EE] uppercase tracking-widest mb-3">
+                        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                        ניהול ספרינטים
+                    </span>
+                    <h2 class="text-3xl font-black text-gray-900 mb-4">שליטה מלאה<br>על כל ספרינט</h2>
+                    <ul class="flex flex-col gap-3">
+                        <li v-for="b in [
+                            'פתיחה וסגירה של ספרינטים לכל צוות בנפרד',
+                            'מעקב סטטוס בזמן אמת — פעיל, הושלם, לא התחיל',
+                            'שיבוץ תפקידים: מפתח, מעצב, QA, מנהל מדפסת',
+                            'פתיחה מחדש של ספרינט אם הצוות צריך עוד זמן',
+                        ]" :key="b" class="flex items-start gap-2.5 text-sm text-gray-600">
+                            <span class="mt-0.5 w-5 h-5 rounded-full bg-[#3CC2EE]/15 flex items-center justify-center shrink-0">
+                                <svg class="w-3 h-3 text-[#3CC2EE]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                            </span>
+                            {{ b }}
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- RIGHT: mission card mockup -->
+                <div class="w-full lg:w-[420px] shrink-0" data-stagger>
+                    <div class="bg-white rounded-3xl shadow-xl border border-gray-200 overflow-hidden">
+                        <!-- Card header -->
+                        <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between gap-3 bg-gray-50/50">
+                            <div class="flex items-center gap-2.5">
+                                <div class="w-8 h-8 rounded-xl bg-amber-50 flex items-center justify-center">
+                                    <svg class="w-4 h-4 text-amber-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M6 9H4.5a2.5 2.5 0 010-5H6"/><path d="M18 9h1.5a2.5 2.5 0 000-5H18"/><path d="M4 22h16"/><path d="M18 2H6v7a6 6 0 0012 0V2z"/>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <p class="text-sm font-bold text-gray-900">ספרינט 2 — שבוע 3</p>
+                                    <p class="text-[10px] text-gray-400">בניית ממשק משתמש</p>
+                                </div>
+                            </div>
+                            <span class="text-[10px] font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700">פעיל</span>
+                        </div>
+
+                        <!-- Teams list -->
+                        <div class="p-4 flex flex-col gap-2.5">
+                            <TransitionGroup name="mission">
+                                <div
+                                    v-for="team in missionTeams"
+                                    :key="team.name"
+                                    class="flex items-center gap-3 bg-gray-50 border border-gray-100 rounded-2xl px-4 py-3 transition-all duration-500"
+                                >
+                                    <!-- Team icon -->
+                                    <div class="w-7 h-7 rounded-full bg-[#3CC2EE]/10 flex items-center justify-center shrink-0">
+                                        <svg class="w-3.5 h-3.5 text-[#3CC2EE]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/>
+                                            <path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>
+                                        </svg>
+                                    </div>
+
+                                    <!-- Name + status -->
+                                    <div class="flex-1 min-w-0">
+                                        <p class="text-sm font-semibold text-gray-800">{{ team.name }}</p>
+                                        <span :class="['text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wide', missionStatusConfig[team.status].cls]">
+                                            {{ missionStatusConfig[team.status].label }}
+                                        </span>
+                                    </div>
+
+                                    <!-- Action button -->
+                                    <button :class="['text-[10px] font-bold px-3 py-1.5 rounded-xl transition-all cursor-pointer shrink-0', missionStatusConfig[team.status].btn]">
+                                        {{ missionStatusConfig[team.status].btnLabel }}
+                                    </button>
+                                </div>
+                            </TransitionGroup>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ══════════════════════════════════════════════════════════════
+             TEACHER: SMART ALERTS DEMO
+        ══════════════════════════════════════════════════════════════ -->
+        <section class="px-4 py-20 bg-gray-900 rounded-3xl mx-4 mb-4" data-reveal>
+            <div class="max-w-6xl mx-auto flex flex-col lg:flex-row items-center gap-12">
+
+                <!-- LEFT: alert panel mockup -->
+                <div class="w-full lg:w-[420px] shrink-0 order-2 lg:order-1" data-stagger>
+                    <div class="bg-[#1a1f2e] rounded-3xl border border-white/10 overflow-hidden shadow-2xl">
+                        <!-- Panel header -->
+                        <div class="flex items-center gap-2.5 px-4 py-3.5 border-b border-white/10 bg-white/5">
+                            <div class="w-7 h-7 rounded-lg bg-red-500/20 flex items-center justify-center">
+                                <svg class="w-3.5 h-3.5 text-red-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                                    <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                                </svg>
+                            </div>
+                            <span class="text-sm font-bold text-white">התראות פעילות</span>
+                            <span class="mr-auto text-[10px] font-bold text-red-400 bg-red-500/15 border border-red-500/30 px-2 py-0.5 rounded-full">
+                                {{ alertDemo.filter(a => !a.read).length }} חדשות
+                            </span>
+                        </div>
+
+                        <!-- Alerts list -->
+                        <div class="p-3 flex flex-col gap-2 min-h-[200px]">
+                            <TransitionGroup name="alert-item">
+                                <div
+                                    v-for="alert in alertDemo"
+                                    :key="alert.id"
+                                    class="flex items-start gap-2.5 rounded-xl px-3 py-2.5 border transition-all duration-500"
+                                    :class="alert.read
+                                        ? 'bg-white/3 border-white/5 opacity-40'
+                                        : 'bg-red-500/10 border-red-500/25'"
+                                >
+                                    <!-- Type badge -->
+                                    <span class="mt-0.5 text-[9px] font-black px-2 py-1 rounded-lg shrink-0"
+                                        :class="alert.read ? 'bg-white/10 text-gray-400' : 'bg-red-500/20 text-red-300'">
+                                        {{ alert.type }}
+                                    </span>
+
+                                    <!-- Content -->
+                                    <div class="flex-1 min-w-0">
+                                        <p class="text-xs font-bold leading-tight"
+                                            :class="alert.read ? 'text-gray-500' : 'text-white'">
+                                            {{ alert.name }}
+                                        </p>
+                                        <p class="text-[10px] leading-relaxed mt-0.5"
+                                            :class="alert.read ? 'text-gray-600' : 'text-gray-300'">
+                                            {{ alert.msg }}
+                                        </p>
+                                    </div>
+
+                                    <!-- Read indicator -->
+                                    <div class="shrink-0 mt-0.5">
+                                        <svg v-if="alert.read" class="w-3.5 h-3.5 text-gray-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                                        <span v-else class="block w-2 h-2 rounded-full bg-red-400 animate-pulse" />
+                                    </div>
+                                </div>
+                            </TransitionGroup>
+
+                            <!-- Empty state -->
+                            <div v-if="alertDemo.length === 0" class="flex items-center justify-center py-8 text-gray-600 text-xs">
+                                אין התראות חדשות
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- RIGHT: explanation -->
+                <div class="flex-1 text-right order-1 lg:order-2" data-stagger>
+                    <span class="inline-flex items-center gap-2 text-xs font-bold text-red-400 uppercase tracking-widest mb-3">
+                        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                            <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                            <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                        </svg>
+                        התראות חכמות
+                    </span>
+                    <h2 class="text-3xl font-black text-white mb-4">לדעת מי נתקע<br>לפני שהוא מוותר</h2>
+                    <ul class="flex flex-col gap-3">
+                        <li v-for="b in [
+                            'DUDE מזהה תלמידים שלא מתקדמים ומדווח בזמן אמת',
+                            'כל התראה כוללת שם התלמיד + קישור לפרופיל המלא',
+                            'סיווג לפי חומרה — תקוע / פערי ידע / הערה קלה',
+                            'סימון כנקרא בלחיצה, או סימון הכל בבת אחת',
+                        ]" :key="b" class="flex items-start gap-2.5 text-sm text-gray-400">
+                            <span class="mt-0.5 w-5 h-5 rounded-full bg-red-400/15 flex items-center justify-center shrink-0">
+                                <svg class="w-3 h-3 text-red-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                            </span>
+                            {{ b }}
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- ══════════════════════════════════════════════════════════════
              GEMINI / AI SECTION
         ══════════════════════════════════════════════════════════════ -->
         <section class="px-6 py-12 max-w-6xl mx-auto" data-reveal>
@@ -585,7 +811,7 @@ const techStack = [
              TECH STACK + FOOTER
         ══════════════════════════════════════════════════════════════ -->
         <section class="px-6 pb-12 max-w-6xl mx-auto">
-            <p class="text-center text-xs font-bold text-gray-300 uppercase tracking-widest mb-5">פותח עם</p>
+            <p class="text-center text-xs font-bold text-gray-500 uppercase tracking-widest mb-5">פותח עם</p>
             <div class="flex flex-wrap justify-center gap-3">
                 <div v-for="t in techStack" :key="t.name"
                     class="flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-4 py-2 shadow-sm hover:shadow-md transition-all">
@@ -686,6 +912,16 @@ const techStack = [
 .chat-enter-from   { opacity: 0; transform: translateY(10px) scale(0.95); }
 .chat-leave-active { transition: all 0.2s ease; }
 .chat-leave-to     { opacity: 0; }
+
+/* Mission team transitions */
+.mission-enter-active, .mission-leave-active { transition: all 0.4s ease; }
+.mission-enter-from, .mission-leave-to { opacity: 0; transform: translateX(12px); }
+
+/* Alert item transitions */
+.alert-item-enter-active { transition: all 0.4s cubic-bezier(0.34, 1.4, 0.64, 1); }
+.alert-item-enter-from   { opacity: 0; transform: translateY(-8px); }
+.alert-item-leave-active { transition: all 0.25s ease; }
+.alert-item-leave-to     { opacity: 0; }
 
 /* Login modal */
 .modal-enter-active, .modal-leave-active { transition: opacity 0.2s ease; }
