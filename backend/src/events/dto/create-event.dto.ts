@@ -8,14 +8,14 @@ export enum EventType {
 
 export class CreateEventDto {
     @IsString()
-    title: string;
+    title!: string;
 
     @IsOptional()
     @IsString()
     description?: string;
 
     @IsDateString()
-    eventDate: string;
+    eventDate!: string;
 
     @IsEnum(EventType)
     @IsOptional()

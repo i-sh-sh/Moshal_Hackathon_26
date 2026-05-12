@@ -2,14 +2,14 @@ import { IsInt, IsOptional, IsString, IsUrl, IsUUID, Max, Min } from 'class-vali
 
 export class CreateJobDto {
     @IsUUID()
-    teamId: string;
+    teamId!: string;
 
     @IsOptional()
     @IsUUID()
     taskId?: string;
 
     @IsString()
-    title: string;
+    title!: string;
 
     @IsOptional()
     @IsString()

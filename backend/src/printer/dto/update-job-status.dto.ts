@@ -9,7 +9,7 @@ export enum PrintJobStatus {
 
 export class UpdateJobStatusDto {
     @IsEnum(PrintJobStatus)
-    status: PrintJobStatus;
+    status!: PrintJobStatus;
 
     @IsOptional()
     @IsString()

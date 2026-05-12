@@ -7,7 +7,7 @@ export enum SessionStatus {
 
 export class EndSessionDto {
     @IsEnum(SessionStatus)
-    status: SessionStatus;
+    status!: SessionStatus;
 
     @IsOptional()
     @IsUrl()
