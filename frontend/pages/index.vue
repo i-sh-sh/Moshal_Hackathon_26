@@ -91,6 +91,26 @@ onMounted(() => {
 
     // Alert demo
     startAlertLoop();
+
+    // Leaderboard bump
+    setInterval(() => {
+        const idx = Math.floor(Math.random() * leaderTeams.value.length);
+        const gain = Math.floor(Math.random() * 15) + 5;
+        leaderTeams.value[idx].pts += gain;
+        leaderTeams.value[idx].bump = true;
+        setTimeout(() => { leaderTeams.value[idx].bump = false; }, 600);
+    }, 1800);
+
+    // Role assignment cycle
+    const sequence = ['dev', 'design', 'qa', 'hardware'];
+    const runAssign = () => {
+        assignRoles.value.forEach(s => { s.role = null; });
+        sequence.forEach((role, i) => {
+            setTimeout(() => { assignRoles.value[i].role = role; }, i * 900 + 400);
+        });
+    };
+    runAssign();
+    setInterval(runAssign, sequence.length * 900 + 4200);
 });
 
 // ── Animated chat demo ──────────────────────────────────────────────────
@@ -194,16 +214,6 @@ const sortedLeader = computed(() =>
 );
 const maxPts = computed(() => sortedLeader.value[0]?.pts ?? 1);
 
-onMounted(() => {
-    setInterval(() => {
-        const idx = Math.floor(Math.random() * leaderTeams.value.length);
-        const gain = Math.floor(Math.random() * 15) + 5;
-        leaderTeams.value[idx].pts += gain;
-        leaderTeams.value[idx].bump = true;
-        setTimeout(() => { leaderTeams.value[idx].bump = false; }, 600);
-    }, 1800);
-});
-
 // ── Roles showcase ──────────────────────────────────────────────────────
 const roles_data = [
     {
@@ -249,36 +259,19 @@ const roles_data = [
 ];
 
 // ── Role assignment demo ────────────────────────────────────────────────
-const assignRoles = [
+const assignRoles = ref([
     { name: 'נועה כהן',  role: null as string|null, avatar: 'from-[#3CC2EE] to-cyan-500' },
     { name: 'יובל לוי',  role: null as string|null, avatar: 'from-violet-400 to-purple-500' },
     { name: 'מאיה ברק',  role: null as string|null, avatar: 'from-amber-400 to-orange-500' },
     { name: 'עמית דוד',  role: null as string|null, avatar: 'from-emerald-400 to-teal-500' },
-];
+]);
 
 const roleOptions = [
-    { key: 'dev',      label: 'מפתח/ת',        cls: 'bg-violet-100 text-violet-700 border-violet-200' },
-    { key: 'design',   label: 'מעצב/ת',         cls: 'bg-blue-100 text-blue-700 border-blue-200' },
-    { key: 'qa',       label: 'QA',              cls: 'bg-amber-100 text-amber-700 border-amber-200' },
-    { key: 'hardware', label: 'מנהל מדפסת',     cls: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
+    { key: 'dev',      label: 'מפתח/ת',       cls: 'bg-violet-100 text-violet-700 border-violet-200' },
+    { key: 'design',   label: 'מעצב/ת',        cls: 'bg-blue-100 text-blue-700 border-blue-200' },
+    { key: 'qa',       label: 'QA',             cls: 'bg-amber-100 text-amber-700 border-amber-200' },
+    { key: 'hardware', label: 'מנהל מדפסת',    cls: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
 ];
-
-onMounted(() => {
-    // auto-assign roles one by one for demo
-    const sequence = ['dev', 'design', 'qa', 'hardware'];
-    sequence.forEach((role, i) => {
-        setTimeout(() => {
-            assignRoles[i].role = role;
-        }, i * 900 + 800);
-    });
-    // reset and replay
-    setInterval(() => {
-        assignRoles.forEach(s => { s.role = null; });
-        sequence.forEach((role, i) => {
-            setTimeout(() => { assignRoles[i].role = role; }, i * 900 + 400);
-        });
-    }, sequence.length * 900 + 4000);
-});
 
 const techStack = [
     { name: 'NestJS',      color: 'text-red-600',     icon: `<circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/>` },
@@ -416,23 +409,23 @@ const techStack = [
                             <div class="flex items-center gap-2 bg-amber-50 border border-amber-100 rounded-lg px-2.5 py-1.5">
                                 <span class="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
                                 <span class="text-[10px] text-amber-800 font-medium truncate">עיצוב מסך הגדרות</span>
-                                <span class="mr-auto text-[9px] text-amber-500 font-bold shrink-0">In Progress</span>
+                                <span class="mr-auto text-[10px] text-amber-500 font-bold shrink-0">In Progress</span>
                             </div>
                             <div class="flex items-center gap-2 bg-emerald-50 border border-emerald-100 rounded-lg px-2.5 py-1.5">
                                 <svg class="w-3 h-3 text-emerald-500 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
                                 <span class="text-[10px] text-emerald-800 font-medium truncate">מיפוי דרישות</span>
-                                <span class="mr-auto text-[9px] text-emerald-500 font-bold shrink-0">Done</span>
+                                <span class="mr-auto text-[10px] text-emerald-500 font-bold shrink-0">Done</span>
                             </div>
                         </div>
                         <!-- Score -->
                         <div class="flex gap-2">
                             <div class="flex-1 bg-cyan-50 rounded-xl p-2 text-center">
                                 <p class="text-lg font-black text-[#3CC2EE]">74</p>
-                                <p class="text-[9px] text-gray-400 font-medium">ז'רגון</p>
+                                <p class="text-[10px] text-gray-500 font-medium">ז'רגון</p>
                             </div>
                             <div class="flex-1 bg-violet-50 rounded-xl p-2 text-center">
                                 <p class="text-lg font-black text-violet-600">81</p>
-                                <p class="text-[9px] text-gray-400 font-medium">כישורים</p>
+                                <p class="text-[10px] text-gray-500 font-medium">כישורים</p>
                             </div>
                         </div>
                     </div>
@@ -458,14 +451,18 @@ const techStack = [
 
                 <div v-for="(step, i) in [
                     { n:'01', title:'המורה פותח ספרינט', desc:'בחירת אתגר ושיבוץ תפקידים לכל חבר צוות', color:'bg-[#3CC2EE]', icon:'M13 2L3 14h9l-1 8 10-12h-9l1-8z' },
-                    { n:'02', title:'התלמיד מקבל תפקיד', desc:'כל תלמיד רואה את תפקידו, המשימות שלו, ולוח הספרינט', color:'bg-violet-500', icon:'M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2 M12 7 a4 4 0 1 0 0-8 4 4 0 0 0 0 8z' },
+                    { n:'02', title:'התלמיד מקבל תפקיד', desc:'כל תלמיד רואה את תפקידו, המשימות שלו, ולוח הספרינט', color:'bg-violet-500', icon:'person' },
                     { n:'03', title:'DUDE מנחה בזמן אמת', desc:'הבוט מדבר בז\'רגון מקצועי, עונה לשאלות, ומדווח למורה', color:'bg-emerald-500', icon:'M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z' },
                 ]" :key="i"
                     class="flex flex-col items-center text-center gap-4 reveal-child"
                     data-stagger
                 >
-                    <div :class="['w-18 h-18 w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg', step.color]">
-                        <svg class="w-7 h-7 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" v-html="`<path d='${step.icon}'/>`" />
+                    <div :class="['w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg', step.color]">
+                        <svg v-if="step.icon !== 'person'" class="w-7 h-7 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" v-html="`<path d='${step.icon}'/>`" />
+                        <svg v-else class="w-7 h-7 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
+                            <circle cx="12" cy="7" r="4"/>
+                        </svg>
                     </div>
                     <div>
                         <span class="text-[10px] font-black text-[#3CC2EE] tracking-widest">{{ step.n }}</span>
@@ -568,7 +565,7 @@ const techStack = [
                         <!-- Input mockup -->
                         <div class="px-4 pb-4">
                             <div class="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2">
-                                <span class="text-xs text-gray-300 flex-1">שאל/י את DUDE...</span>
+                                <span class="text-xs text-gray-400 flex-1">שאל/י את DUDE...</span>
                                 <div class="w-6 h-6 rounded-lg bg-[#3CC2EE] flex items-center justify-center">
                                     <svg class="w-3 h-3 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
                                 </div>
@@ -646,7 +643,7 @@ const techStack = [
                             <div v-for="task in col.tasks" :key="task.title"
                                 class="bg-white/5 border border-white/10 rounded-xl p-2.5 flex flex-col gap-1.5 hover:bg-white/10 transition-colors">
                                 <p class="text-[11px] text-white font-medium leading-snug">{{ task.title }}</p>
-                                <span :class="['text-[9px] font-bold px-1.5 py-0.5 rounded-full self-start', task.tagColor]">{{ task.tag }}</span>
+                                <span :class="['text-[10px] font-bold px-1.5 py-0.5 rounded-full self-start', task.tagColor]">{{ task.tag }}</span>
                             </div>
                         </div>
                     </div>
@@ -902,7 +899,7 @@ const techStack = [
                                     <!-- Name + status -->
                                     <div class="flex-1 min-w-0">
                                         <p class="text-sm font-semibold text-gray-800">{{ team.name }}</p>
-                                        <span :class="['text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wide', missionStatusConfig[team.status].cls]">
+                                        <span :class="['text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wide', missionStatusConfig[team.status].cls]">
                                             {{ missionStatusConfig[team.status].label }}
                                         </span>
                                     </div>
@@ -989,7 +986,7 @@ const techStack = [
                                     >
                                         {{ roleOptions.find(r => r.key === s.role)?.label }}
                                     </span>
-                                    <span v-else class="text-[11px] text-gray-300 font-medium shrink-0 px-2">ממתין...</span>
+                                    <span v-else class="text-[11px] text-gray-400 font-medium shrink-0 px-2">ממתין...</span>
                                 </Transition>
                             </div>
                         </div>
@@ -1040,7 +1037,7 @@ const techStack = [
                                         : 'bg-red-500/10 border-red-500/25'"
                                 >
                                     <!-- Type badge -->
-                                    <span class="mt-0.5 text-[9px] font-black px-2 py-1 rounded-lg shrink-0"
+                                    <span class="mt-0.5 text-[10px] font-black px-2 py-1 rounded-lg shrink-0"
                                         :class="alert.read ? 'bg-white/10 text-gray-400' : 'bg-red-500/20 text-red-300'">
                                         {{ alert.type }}
                                     </span>
