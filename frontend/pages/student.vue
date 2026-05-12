@@ -222,15 +222,184 @@ const {
 );
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────
-const activeTab = ref<'tasks' | 'leaderboard' | 'chat' | 'mentor' | 'progress'>('tasks');
+const activeTab = ref<'tasks' | 'leaderboard' | 'chat' | 'mentor' | 'progress' | 'events' | 'printer' | 'lab'>('tasks');
 
 const tabs = [
-    { id: 'tasks',       label: 'משימות',     shortLabel: 'משימות' },
-    { id: 'leaderboard', label: 'דירוג',      shortLabel: 'דירוג' },
-    { id: 'chat',        label: "צ'אט",       shortLabel: "צ'אט" },
-    { id: 'mentor',      label: 'מנטור',      shortLabel: 'מנטור' },
-    { id: 'progress',    label: 'התקדמות',    shortLabel: 'התקדמות' },
+    { id: 'tasks',       label: 'משימות' },
+    { id: 'leaderboard', label: 'דירוג' },
+    { id: 'chat',        label: "צ'אט" },
+    { id: 'mentor',      label: 'מנטור' },
+    { id: 'progress',    label: 'התקדמות' },
+    { id: 'events',      label: 'אירועים' },
+    { id: 'printer',     label: 'מדפסת' },
+    { id: 'lab',         label: 'מעבדה' },
 ] as const;
+
+// ── Sidebar view → tab mapping ────────────────────────────────────────────────
+type SidebarView = 'status' | 'challenges' | 'events' | 'printer' | 'lab';
+const sidebarTabMap: Record<SidebarView, typeof activeTab.value> = {
+    status:     'progress',
+    challenges: 'tasks',
+    events:     'events',
+    printer:    'printer',
+    lab:        'lab',
+};
+
+const sidebarActiveView = computed<SidebarView>(() => {
+    const reverse = Object.entries(sidebarTabMap).find(([, t]) => t === activeTab.value);
+    return (reverse?.[0] as SidebarView) ?? 'challenges';
+});
+
+function onSidebarNavigate(view: SidebarView) {
+    activeTab.value = sidebarTabMap[view];
+}
+
+// ── Events (לוח אירועים) ──────────────────────────────────────────────────────
+const events = ref<any[]>([]);
+const eventsLoading = ref(false);
+
+async function fetchEvents() {
+    if (!user.value?.currentTeamId) return;
+    eventsLoading.value = true;
+    try {
+        events.value = await $fetch(`${base}/events?teamId=${user.value.currentTeamId}`);
+    } catch {
+        events.value = [];
+    } finally {
+        eventsLoading.value = false;
+    }
+}
+
+const eventTypeLabel: Record<string, string> = {
+    event:        'אירוע',
+    deadline:     'מועד אחרון',
+    announcement: 'הודעה',
+};
+const eventTypeColor: Record<string, string> = {
+    event:        'bg-blue-100 text-blue-700',
+    deadline:     'bg-red-100 text-red-700',
+    announcement: 'bg-amber-100 text-amber-700',
+};
+
+function formatEventDate(iso: string) {
+    return new Date(iso).toLocaleDateString('he-IL', { day: 'numeric', month: 'long', weekday: 'long' });
+}
+
+// ── Printer jobs ──────────────────────────────────────────────────────────────
+const printerJobs = ref<any[]>([]);
+const printerLoading = ref(false);
+const printerForm = reactive({ title: '', description: '', fileUrl: '', copies: 1 });
+const printerSubmitting = ref(false);
+
+async function fetchPrinterJobs() {
+    if (!user.value?.currentTeamId) return;
+    printerLoading.value = true;
+    try {
+        printerJobs.value = await $fetch(`${base}/printer/jobs?teamId=${user.value.currentTeamId}`);
+    } catch {
+        printerJobs.value = [];
+    } finally {
+        printerLoading.value = false;
+    }
+}
+
+async function submitPrintJob() {
+    if (!printerForm.title.trim() || !user.value?.currentTeamId) return;
+    printerSubmitting.value = true;
+    try {
+        await $fetch(`${base}/printer/jobs`, {
+            method: 'POST',
+            body: { teamId: user.value.currentTeamId, ...printerForm },
+        });
+        printerForm.title = '';
+        printerForm.description = '';
+        printerForm.fileUrl = '';
+        printerForm.copies = 1;
+        await fetchPrinterJobs();
+        showToast('עבודת הדפסה נשלחה!');
+    } catch {
+        showToast('שגיאה בשליחת העבודה', 'error');
+    } finally {
+        printerSubmitting.value = false;
+    }
+}
+
+async function updateJobStatus(id: string, status: string) {
+    try {
+        await $fetch(`${base}/printer/jobs/${id}/status`, { method: 'PATCH', body: { status } });
+        await fetchPrinterJobs();
+        showToast('סטטוס עודכן');
+    } catch {
+        showToast('שגיאה בעדכון', 'error');
+    }
+}
+
+const jobStatusLabel: Record<string, string> = {
+    pending:  'ממתין',
+    printing: 'מודפס',
+    done:     'הושלם',
+    cancelled: 'בוטל',
+};
+const jobStatusColor: Record<string, string> = {
+    pending:  'bg-amber-100 text-amber-700',
+    printing: 'bg-blue-100 text-blue-700',
+    done:     'bg-emerald-100 text-emerald-700',
+    cancelled: 'bg-gray-100 text-gray-500',
+};
+
+// ── Lab sessions ──────────────────────────────────────────────────────────────
+const labTools = ref<any[]>([]);
+const labSessions = ref<any[]>([]);
+const labLoading = ref(false);
+const labForm = reactive({ toolId: '', purpose: '' });
+const labSubmitting = ref(false);
+
+async function fetchLab() {
+    if (!user.value?.currentTeamId) return;
+    labLoading.value = true;
+    try {
+        const [tools, sessions] = await Promise.all([
+            $fetch<any[]>(`${base}/lab/tools`),
+            $fetch<any[]>(`${base}/lab/sessions?teamId=${user.value.currentTeamId}`),
+        ]);
+        labTools.value = tools;
+        labSessions.value = sessions;
+    } catch {
+        labTools.value = [];
+        labSessions.value = [];
+    } finally {
+        labLoading.value = false;
+    }
+}
+
+async function startLabSession() {
+    if (!labForm.purpose.trim() || !user.value?.currentTeamId) return;
+    labSubmitting.value = true;
+    try {
+        await $fetch(`${base}/lab/sessions`, {
+            method: 'POST',
+            body: { teamId: user.value.currentTeamId, toolId: labForm.toolId || undefined, purpose: labForm.purpose },
+        });
+        labForm.purpose = '';
+        labForm.toolId = '';
+        await fetchLab();
+        showToast('סשן מעבדה נפתח!');
+    } catch {
+        showToast('שגיאה בפתיחת סשן', 'error');
+    } finally {
+        labSubmitting.value = false;
+    }
+}
+
+async function endLabSession(id: string) {
+    try {
+        await $fetch(`${base}/lab/sessions/${id}/end`, { method: 'PATCH', body: { status: 'completed' } });
+        await fetchLab();
+        showToast('סשן הסתיים');
+    } catch {
+        showToast('שגיאה', 'error');
+    }
+}
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 onMounted(async () => {
@@ -245,6 +414,13 @@ onMounted(async () => {
         fetchMyProfile(user.value.id);
         fetchSnapshots(user.value.id);
     }
+});
+
+// Lazy-load feature data when switching tabs
+watch(activeTab, (tab) => {
+    if (tab === 'events'  && !events.value.length)       fetchEvents();
+    if (tab === 'printer' && !printerJobs.value.length)  fetchPrinterJobs();
+    if (tab === 'lab'     && !labTools.value.length)     fetchLab();
 });
 
 onUnmounted(() => {
@@ -273,7 +449,13 @@ onUnmounted(() => { if (tickTimer) clearInterval(tickTimer); });
     <div class="min-h-screen bg-[#F8FAFC] flex" dir="rtl">
 
         <!-- Sidebar -->
-        <TechSchoolSidebar school-label="School Test 01" :on-logout="handleLogout" :hide-mentor-bot="true" />
+        <TechSchoolSidebar
+            school-label="School Test 01"
+            :on-logout="handleLogout"
+            :hide-mentor-bot="true"
+            :active-view="sidebarActiveView"
+            @navigate="onSidebarNavigate"
+        />
 
         <!-- Main content -->
         <div class="flex-1 flex flex-col min-w-0">
@@ -541,6 +723,185 @@ onUnmounted(() => { if (tickTimer) clearInterval(tickTimer); });
                         :snapshots="mySnapshots"
                         :user-name="user?.name"
                     />
+                </div>
+
+                <!-- ── Events tab ─────────────────────────────────────── -->
+                <div v-if="activeTab === 'events'" class="flex flex-col gap-4">
+                    <div v-if="eventsLoading" class="flex justify-center py-16">
+                        <div class="w-8 h-8 rounded-full animate-spin" style="border: 3px solid #d0f4ff; border-top-color: #3CC2EE;" />
+                    </div>
+                    <div v-else-if="!events.length" class="flex flex-col items-center justify-center py-20 gap-3 text-gray-400">
+                        <div class="w-12 h-12 rounded-2xl bg-gray-100 flex items-center justify-center">
+                            <svg class="w-6 h-6 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+                            </svg>
+                        </div>
+                        <p class="text-sm">אין אירועים קרובים.</p>
+                    </div>
+                    <div v-else class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                        <div
+                            v-for="ev in events"
+                            :key="ev.id"
+                            class="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 flex flex-col gap-2 hover:shadow-md transition-shadow"
+                        >
+                            <div class="flex items-center justify-between gap-2">
+                                <span :class="['text-[11px] font-bold px-2 py-0.5 rounded-full', eventTypeColor[ev.event_type] ?? 'bg-gray-100 text-gray-600']">
+                                    {{ eventTypeLabel[ev.event_type] ?? ev.event_type }}
+                                </span>
+                                <span class="text-xs text-gray-400">{{ formatEventDate(ev.event_date) }}</span>
+                            </div>
+                            <h3 class="font-semibold text-sm text-gray-800">{{ ev.title }}</h3>
+                            <p v-if="ev.description" class="text-xs text-gray-500 leading-relaxed">{{ ev.description }}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ── Printer tab ─────────────────────────────────────── -->
+                <div v-if="activeTab === 'printer'" class="flex flex-col gap-5">
+                    <!-- Submit form -->
+                    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 flex flex-col gap-4">
+                        <h3 class="font-bold text-gray-800 text-sm">שליחת עבודת הדפסה חדשה</h3>
+                        <div class="grid gap-3 sm:grid-cols-2">
+                            <label class="field">
+                                <span>שם העבודה *</span>
+                                <input v-model="printerForm.title" class="input" placeholder="לדוג׳ — מכסה מדפסת 3D" />
+                            </label>
+                            <label class="field">
+                                <span>קישור לקובץ</span>
+                                <input v-model="printerForm.fileUrl" type="url" class="input" placeholder="https://..." />
+                            </label>
+                            <label class="field sm:col-span-2">
+                                <span>תיאור</span>
+                                <textarea v-model="printerForm.description" class="input" rows="2" placeholder="פירוט מה להדפיס, חומר, גודל..." />
+                            </label>
+                            <label class="field">
+                                <span>עותקים</span>
+                                <input v-model.number="printerForm.copies" type="number" min="1" max="20" class="input w-24" />
+                            </label>
+                        </div>
+                        <button
+                            class="btn btn-primary btn-md self-start"
+                            :disabled="!printerForm.title.trim() || printerSubmitting"
+                            @click="submitPrintJob"
+                        >
+                            <span v-if="printerSubmitting" class="w-4 h-4 rounded-full animate-spin shrink-0" style="border: 2px solid rgba(255,255,255,0.3); border-top-color: white;" />
+                            <span v-else>שלח לתור הדפסה</span>
+                        </button>
+                    </div>
+
+                    <!-- Jobs list -->
+                    <div v-if="printerLoading" class="flex justify-center py-8">
+                        <div class="w-7 h-7 rounded-full animate-spin" style="border: 3px solid #d0f4ff; border-top-color: #3CC2EE;" />
+                    </div>
+                    <div v-else-if="!printerJobs.length" class="text-center py-10 text-sm text-gray-400">
+                        אין עבודות בתור.
+                    </div>
+                    <div v-else class="flex flex-col gap-3">
+                        <div
+                            v-for="job in printerJobs"
+                            :key="job.id"
+                            class="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 flex items-start gap-4"
+                        >
+                            <div class="w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
+                                <svg class="w-5 h-5 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                    <polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/>
+                                    <rect x="6" y="14" width="12" height="8"/>
+                                </svg>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center justify-between gap-2 flex-wrap">
+                                    <p class="font-semibold text-sm text-gray-800">{{ job.title }}</p>
+                                    <span :class="['text-[11px] font-bold px-2 py-0.5 rounded-full shrink-0', jobStatusColor[job.status] ?? 'bg-gray-100 text-gray-600']">
+                                        {{ jobStatusLabel[job.status] ?? job.status }}
+                                    </span>
+                                </div>
+                                <p v-if="job.description" class="text-xs text-gray-500 mt-1">{{ job.description }}</p>
+                                <div class="flex items-center gap-3 mt-2 text-xs text-gray-400">
+                                    <span>{{ job.copies }} עותקים</span>
+                                    <span v-if="job.submitter">{{ job.submitter.name }}</span>
+                                </div>
+                                <!-- Hardware role: update status -->
+                                <div v-if="role === 'hardware' && job.status !== 'done' && job.status !== 'cancelled'" class="flex gap-2 mt-3">
+                                    <button v-if="job.status === 'pending'"  class="btn btn-primary btn-sm"  @click="updateJobStatus(job.id, 'printing')">התחל הדפסה</button>
+                                    <button v-if="job.status === 'printing'" class="btn btn-success btn-sm" @click="updateJobStatus(job.id, 'done')">סמן כהושלם</button>
+                                    <button class="btn btn-ghost btn-sm" @click="updateJobStatus(job.id, 'cancelled')">בטל</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ── Lab tab ─────────────────────────────────────────── -->
+                <div v-if="activeTab === 'lab'" class="flex flex-col gap-5">
+                    <!-- Start session form -->
+                    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 flex flex-col gap-4">
+                        <h3 class="font-bold text-gray-800 text-sm">פתיחת סשן מעבדה</h3>
+                        <div class="grid gap-3 sm:grid-cols-2">
+                            <label class="field">
+                                <span>כלי / ציוד</span>
+                                <select v-model="labForm.toolId" class="input">
+                                    <option value="">בחר כלי (אופציונלי)</option>
+                                    <option v-for="t in labTools" :key="t.id" :value="t.id">{{ t.name }}</option>
+                                </select>
+                            </label>
+                            <label class="field">
+                                <span>מטרת הסשן *</span>
+                                <input v-model="labForm.purpose" class="input" placeholder="לדוג׳ — הדפסת מעטפת למכשיר" />
+                            </label>
+                        </div>
+                        <button
+                            class="btn btn-primary btn-md self-start"
+                            :disabled="!labForm.purpose.trim() || labSubmitting"
+                            @click="startLabSession"
+                        >
+                            <span v-if="labSubmitting" class="w-4 h-4 rounded-full animate-spin shrink-0" style="border: 2px solid rgba(255,255,255,0.3); border-top-color: white;" />
+                            <span v-else">פתח סשן</span>
+                        </button>
+                    </div>
+
+                    <!-- Sessions list -->
+                    <div v-if="labLoading" class="flex justify-center py-8">
+                        <div class="w-7 h-7 rounded-full animate-spin" style="border: 3px solid #d0f4ff; border-top-color: #3CC2EE;" />
+                    </div>
+                    <div v-else-if="!labSessions.length" class="text-center py-10 text-sm text-gray-400">
+                        אין סשנים קודמים.
+                    </div>
+                    <div v-else class="flex flex-col gap-3">
+                        <div
+                            v-for="s in labSessions"
+                            :key="s.id"
+                            class="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 flex items-start gap-4"
+                        >
+                            <div class="w-9 h-9 rounded-xl bg-violet-50 flex items-center justify-center shrink-0">
+                                <svg class="w-5 h-5 text-violet-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                    <path d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18"/>
+                                </svg>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center justify-between gap-2 flex-wrap">
+                                    <p class="font-semibold text-sm text-gray-800">{{ s.purpose }}</p>
+                                    <span :class="['text-[11px] font-bold px-2 py-0.5 rounded-full shrink-0',
+                                        s.status === 'active' ? 'bg-blue-100 text-blue-700' :
+                                        s.status === 'completed' ? 'bg-emerald-100 text-emerald-700' :
+                                        'bg-gray-100 text-gray-500']">
+                                        {{ s.status === 'active' ? 'פעיל' : s.status === 'completed' ? 'הושלם' : 'בוטל' }}
+                                    </span>
+                                </div>
+                                <p v-if="s.tool" class="text-xs text-gray-500 mt-1">{{ s.tool.name }}</p>
+                                <div class="flex items-center gap-3 mt-2 text-xs text-gray-400">
+                                    <span>{{ new Date(s.started_at).toLocaleDateString('he-IL') }}</span>
+                                    <span v-if="s.user">{{ s.user.name }}</span>
+                                </div>
+                                <button
+                                    v-if="s.status === 'active'"
+                                    class="btn btn-success btn-sm mt-3"
+                                    @click="endLabSession(s.id)"
+                                >
+                                    סיים סשן
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- ── Leaderboard tab ─────────────────────────────────── -->
