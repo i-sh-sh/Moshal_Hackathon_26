@@ -181,6 +181,73 @@ function startAlertLoop() {
     }, alertPool.length * 1100 + 2200);
 }
 
+// ── Leaderboard demo — teams score animation ────────────────────────────
+const leaderTeams = ref([
+    { name: 'צוות אלפא', pts: 340, color: 'from-[#3CC2EE] to-cyan-500',   avatar: 'bg-[#3CC2EE]',   bump: false },
+    { name: 'צוות ביתא', pts: 295, color: 'from-violet-400 to-purple-500', avatar: 'bg-violet-500',  bump: false },
+    { name: 'צוות גמא',  pts: 260, color: 'from-amber-400 to-orange-500',  avatar: 'bg-amber-500',   bump: false },
+    { name: 'צוות דלתא', pts: 210, color: 'from-emerald-400 to-teal-500',  avatar: 'bg-emerald-500', bump: false },
+]);
+
+const sortedLeader = computed(() =>
+    [...leaderTeams.value].sort((a, b) => b.pts - a.pts)
+);
+const maxPts = computed(() => sortedLeader.value[0]?.pts ?? 1);
+
+onMounted(() => {
+    setInterval(() => {
+        const idx = Math.floor(Math.random() * leaderTeams.value.length);
+        const gain = Math.floor(Math.random() * 15) + 5;
+        leaderTeams.value[idx].pts += gain;
+        leaderTeams.value[idx].bump = true;
+        setTimeout(() => { leaderTeams.value[idx].bump = false; }, 600);
+    }, 1800);
+});
+
+// ── Roles showcase ──────────────────────────────────────────────────────
+const roles_data = [
+    {
+        role: 'מפתח/ת',
+        eng: 'Developer',
+        color: 'from-violet-400 to-purple-500',
+        bg: 'bg-violet-50',
+        border: 'border-violet-200',
+        text: 'text-violet-700',
+        icon: `<polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>`,
+        tasks: ['כותב/ת קוד ומממש/ת פיצרים', 'פותח/ת Pull Requests', 'מגיב/ה על Code Review'],
+    },
+    {
+        role: 'מעצב/ת',
+        eng: 'Designer',
+        color: 'from-blue-400 to-indigo-500',
+        bg: 'bg-blue-50',
+        border: 'border-blue-200',
+        text: 'text-blue-700',
+        icon: `<circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 010 14.14M4.93 4.93a10 10 0 000 14.14"/>`,
+        tasks: ['מעצב/ת מסכים ו-UI', 'יוצר/ת Wireframes', 'מגדיר/ה Design System'],
+    },
+    {
+        role: 'QA',
+        eng: 'Quality Assurance',
+        color: 'from-amber-400 to-orange-500',
+        bg: 'bg-amber-50',
+        border: 'border-amber-200',
+        text: 'text-amber-700',
+        icon: `<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>`,
+        tasks: ['כותב/ת ומריץ/ה טסטים', 'מוצא/ת ומדווח/ת על באגים', 'מאשר/ת Release לפרודקשן'],
+    },
+    {
+        role: 'מנהל מדפסת',
+        eng: 'Hardware Operator',
+        color: 'from-emerald-400 to-teal-500',
+        bg: 'bg-emerald-50',
+        border: 'border-emerald-200',
+        text: 'text-emerald-700',
+        icon: `<polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>`,
+        tasks: ['מנהל/ת תור הדפסות 3D', 'מאשר/ת ומתפעל/ת בקשות', 'מתאם/ת זמן מכונה במעבדה'],
+    },
+];
+
 const techStack = [
     { name: 'NestJS',      color: 'text-red-600',     icon: `<circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/>` },
     { name: 'Nuxt 3',      color: 'text-emerald-600',  icon: `<path d="M12 2L2 19h20L12 2z"/>` },
@@ -378,6 +445,47 @@ const techStack = [
         </section>
 
         <!-- ══════════════════════════════════════════════════════════════
+             ROLES SHOWCASE
+        ══════════════════════════════════════════════════════════════ -->
+        <section class="px-6 py-20 max-w-6xl mx-auto" data-reveal>
+            <div class="text-center mb-12" data-stagger>
+                <span class="text-xs font-bold text-gray-400 uppercase tracking-widest">תפקידים</span>
+                <h2 class="text-3xl font-black text-gray-900 mt-1">4 תפקידים. 1 צוות. ספרינט אחד.</h2>
+                <p class="text-gray-500 mt-2 max-w-lg mx-auto text-sm">כל תלמיד מקבל תפקיד שונה עם משימות, אחריות, ושפה מקצועית משלו.</p>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div
+                    v-for="r in roles_data"
+                    :key="r.role"
+                    :class="['rounded-2xl border p-5 flex flex-col gap-3 transition-all duration-200 hover:shadow-md', r.bg, r.border]"
+                    data-stagger
+                >
+                    <!-- Icon circle -->
+                    <div :class="['w-11 h-11 rounded-xl bg-gradient-to-br flex items-center justify-center shadow-sm shrink-0', r.color]">
+                        <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" v-html="r.icon" />
+                    </div>
+
+                    <!-- Title -->
+                    <div>
+                        <p :class="['font-black text-base', r.text]">{{ r.role }}</p>
+                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">{{ r.eng }}</p>
+                    </div>
+
+                    <!-- Tasks -->
+                    <ul class="flex flex-col gap-1.5">
+                        <li v-for="t in r.tasks" :key="t" class="flex items-start gap-1.5 text-xs text-gray-600">
+                            <svg :class="['w-3 h-3 mt-0.5 shrink-0', r.text]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                <polyline points="20 6 9 17 4 12"/>
+                            </svg>
+                            {{ t }}
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- ══════════════════════════════════════════════════════════════
              DUDE CHAT DEMO — "הצ'אט שמלמד בלי ללמד"
         ══════════════════════════════════════════════════════════════ -->
         <section class="px-6 py-20 max-w-6xl mx-auto" data-reveal>
@@ -510,6 +618,109 @@ const techStack = [
                             </div>
                         </div>
                     </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ══════════════════════════════════════════════════════════════
+             LEADERBOARD DEMO
+        ══════════════════════════════════════════════════════════════ -->
+        <section class="px-6 py-20 max-w-6xl mx-auto" data-reveal>
+            <div class="flex flex-col lg:flex-row items-center gap-12">
+
+                <!-- LEFT: leaderboard mockup -->
+                <div class="w-full lg:w-[400px] shrink-0" data-stagger>
+                    <div class="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
+                        <!-- Header -->
+                        <div class="flex items-center gap-2.5 px-5 py-4 bg-gray-50 border-b border-gray-100">
+                            <div class="w-8 h-8 rounded-xl bg-amber-400 flex items-center justify-center shadow-sm">
+                                <svg class="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                    <path d="M6 9H4.5a2.5 2.5 0 010-5H6"/><path d="M18 9h1.5a2.5 2.5 0 000-5H18"/>
+                                    <path d="M4 22h16"/><path d="M18 2H6v7a6 6 0 0012 0V2z"/>
+                                </svg>
+                            </div>
+                            <span class="font-bold text-sm text-gray-900">לידרבורד — ספרינט 2</span>
+                            <span class="mr-auto text-[10px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full">
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block mr-1 animate-pulse" />
+                                LIVE
+                            </span>
+                        </div>
+
+                        <!-- Team rows -->
+                        <div class="p-4 flex flex-col gap-2.5">
+                            <TransitionGroup name="leader">
+                                <div
+                                    v-for="(team, idx) in sortedLeader"
+                                    :key="team.name"
+                                    class="flex items-center gap-3 rounded-2xl px-3 py-2.5 transition-all duration-500"
+                                    :class="[
+                                        team.bump ? 'bg-amber-50 border border-amber-200 scale-[1.02]' : 'bg-gray-50 border border-gray-100',
+                                        idx === 0 ? 'ring-1 ring-amber-300/60' : ''
+                                    ]"
+                                >
+                                    <!-- Rank -->
+                                    <div class="w-6 h-6 shrink-0 flex items-center justify-center">
+                                        <svg v-if="idx === 0" class="w-5 h-5 text-amber-400" viewBox="0 0 24 24" fill="currentColor">
+                                            <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/>
+                                        </svg>
+                                        <span v-else class="text-xs font-black text-gray-400">{{ idx + 1 }}</span>
+                                    </div>
+
+                                    <!-- Avatar + name -->
+                                    <div :class="['w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-black shrink-0', team.avatar]">
+                                        {{ team.name.charAt(4) }}
+                                    </div>
+                                    <span class="flex-1 text-sm font-semibold text-gray-800 min-w-0 truncate">{{ team.name }}</span>
+
+                                    <!-- Score bar -->
+                                    <div class="w-20 h-1.5 bg-gray-100 rounded-full overflow-hidden shrink-0">
+                                        <div
+                                            class="h-full rounded-full bg-gradient-to-r transition-all duration-700"
+                                            :class="team.color"
+                                            :style="`width:${Math.round((team.pts / maxPts) * 100)}%`"
+                                        />
+                                    </div>
+
+                                    <!-- Points -->
+                                    <span
+                                        class="text-sm font-black w-10 text-right shrink-0 transition-all duration-300"
+                                        :class="[
+                                            team.bump ? 'text-amber-500 scale-110' : '',
+                                            idx === 0 ? 'text-amber-500' : 'text-gray-700'
+                                        ]"
+                                    >{{ team.pts }}</span>
+
+                                    <!-- Bump flash -->
+                                    <span v-if="team.bump" class="text-[10px] font-black text-emerald-500 animate-bounce shrink-0">+</span>
+                                </div>
+                            </TransitionGroup>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- RIGHT: explanation -->
+                <div class="flex-1 text-right" data-stagger>
+                    <span class="inline-flex items-center gap-2 text-xs font-bold text-amber-500 uppercase tracking-widest mb-3">
+                        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                            <path d="M6 9H4.5a2.5 2.5 0 010-5H6"/><path d="M18 9h1.5a2.5 2.5 0 000-5H18"/>
+                            <path d="M4 22h16"/><path d="M18 2H6v7a6 6 0 0012 0V2z"/>
+                        </svg>
+                        לידרבורד
+                    </span>
+                    <h2 class="text-3xl font-black text-gray-900 mb-4">תחרות בריאה<br>מניעה קדימה</h2>
+                    <ul class="flex flex-col gap-3">
+                        <li v-for="b in [
+                            'כל משימה שהושלמה מוסיפה נקודות לצוות',
+                            'הלידרבורד מתעדכן בזמן אמת — כל הצוותים רואים',
+                            'תמריץ לסיים מהר ולעזור לשאר חברי הצוות',
+                            'המורה רואה את ההתקדמות של כל הצוותים במבט אחד',
+                        ]" :key="b" class="flex items-start gap-2.5 text-sm text-gray-600">
+                            <span class="mt-0.5 w-5 h-5 rounded-full bg-amber-400/15 flex items-center justify-center shrink-0">
+                                <svg class="w-3 h-3 text-amber-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                            </span>
+                            {{ b }}
+                        </li>
+                    </ul>
                 </div>
             </div>
         </section>
@@ -912,6 +1123,11 @@ const techStack = [
 .chat-enter-from   { opacity: 0; transform: translateY(10px) scale(0.95); }
 .chat-leave-active { transition: all 0.2s ease; }
 .chat-leave-to     { opacity: 0; }
+
+/* Leaderboard row transitions */
+.leader-move { transition: transform 0.5s ease; }
+.leader-enter-active { transition: all 0.4s ease; }
+.leader-enter-from   { opacity: 0; transform: translateX(16px); }
 
 /* Mission team transitions */
 .mission-enter-active, .mission-leave-active { transition: all 0.4s ease; }
