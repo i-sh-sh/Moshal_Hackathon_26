@@ -416,16 +416,17 @@ watch(activeTab, (tab) => {
                         <p class="text-sm text-gray-400">טרם נותחו פרופילי למידה עבור תלמידים אלו.</p>
                     </div>
 
-                    <div v-else class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                    <div v-else class="flex flex-col gap-2">
                         <NuxtLink
                             v-for="p in enrichedProfiles"
                             :key="p.id"
                             :to="`/teacher-student/${p.userId}`"
-                            class="block hover:scale-[1.01] transition-transform"
+                            class="block"
                         >
                             <StudentProfileCard
                                 :profile="p"
                                 :user-name="p.name"
+                                compact
                             />
                         </NuxtLink>
                     </div>
